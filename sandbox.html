@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mighty Maisy Sandbox — Continuous-mm Rescue Maze Simulator</title>
+<meta name="description" content="Year 11 Software Engineering — continuous-mm rescue maze simulator with noisy sensors that mirror an Arduino Mega + VL53L1X + TCS34725 + TB6612FNG build.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=JetBrains+Mono:wght@400;500;700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="sandbox.css">
+</head>
+<body>
+<div class="container">
+
+  <header class="hero">
+    <div class="meta-row">
+      <span><span class="tag">11SE</span> &nbsp; Mighty Maisy Sandbox <span class="tag v2">v2 · continuous mm</span></span>
+      <span>RCJA Rescue Maze 2026 · Mighty Maisy division</span>
+    </div>
+    <h1>Robot programming sandbox <em>— with noisy sensors</em></h1>
+    <p class="lede">
+      A continuous-mm rescue maze simulator. The robot lives in millimetre space,
+      sees the world through three VL53L1X-style ToF sensors and a TCS34725-style colour sensor,
+      and is driven by a TB6612FNG-style signed-PWM motor pair. Same shape as your Arduino Mega build —
+      same code structure, same noisy reality.
+    </p>
+  </header>
+
+  <div class="mission">
+    <span class="mission-label">Mission</span>
+    <p>Identify every red and green victim in the maze. Avoid black "no-go" tiles. Return to the silver Start tile and exit. Score points: 10 per green, 25 per red, +25 for a clean exit, +25 each for accurate count bonuses (once you've found at least half the victims).</p>
+  </div>
+
+  <!-- ===== Toolbar ===== -->
+  <div class="toolbar">
+    <span class="toolbar-label">Paint</span>
+    <button class="tool-btn active" data-tool="wall">Wall</button>
+    <button class="tool-btn" data-tool="empty"><span class="dot e"></span>Empty</button>
+    <button class="tool-btn" data-tool="start"><span class="dot s"></span>Start</button>
+    <button class="tool-btn" data-tool="black"><span class="dot k"></span>Black</button>
+    <button class="tool-btn" data-tool="red"><span class="dot r"></span>Red victim</button>
+    <button class="tool-btn" data-tool="green"><span class="dot g"></span>Green victim</button>
+    <span class="toolbar-spacer"></span>
+    <button class="tool-btn" id="btnClearMaze" title="Clear interior walls + tiles, keep perimeter and start">Clear interior</button>
+    <button class="tool-btn" id="btnResetMaze" title="Wipe maze back to default 6×6 perimeter">Reset maze</button>
+    <button class="tool-btn" id="btnTestMaze" title="Load the built-in test maze — 4 victims, 1 black tile, fully solvable by right-hand wall following">Test maze</button>
+    <button class="tool-btn" id="btnExportMaze" title="Download the current maze as a JSON file">Export JSON</button>
+    <button class="tool-btn" id="btnImportMaze" title="Load a maze from a JSON file">Import JSON</button>
+    <input type="file" id="importMazeFile" accept=".json,application/json" style="display: none;">
+    <button class="tool-btn" id="btnNoise" title="Toggle sensor noise — turn off for algorithm debugging or lesson demos">Noise: ON</button>
+  </div>
+
+  <!-- ============================================================
+       ZONE 1: MAZE + LIVE TELEMETRY (always visible)
+       ============================================================ -->
+  <div class="run-zone">
+    <div class="run-grid">
+
+      <!-- Left telemetry column: pose + score (and LoP picker overlay) -->
+      <aside class="telemetry telemetry-left">
+
+        <div class="telemetry-panels" id="telemetryPanels">
+
+        <section class="tele-block">
+          <h3>Pose</h3>
+          <div class="pose-readout" id="poseReadout">
+            <div class="pose-row">
+              <span class="pose-key">x</span>
+              <span class="pose-val" id="poseX">—</span>
+              <span class="pose-unit">mm</span>
+            </div>
+            <div class="pose-row">
+              <span class="pose-key">y</span>
+              <span class="pose-val" id="poseY">—</span>
+              <span class="pose-unit">mm</span>
+            </div>
+            <div class="pose-row">
+              <span class="pose-key">θ</span>
+              <span class="pose-val" id="poseT">—</span>
+              <span class="pose-unit">°</span>
+            </div>
+            <div class="pose-row pose-pwm">
+              <span class="pose-key">L PWM</span>
+              <span class="pose-val" id="poseLPwm">0</span>
+              <span class="pose-key" style="margin-left:auto;">R PWM</span>
+              <span class="pose-val" id="poseRPwm">0</span>
+            </div>
+            <div class="pose-bump" id="poseBump"></div>
+          </div>
+        </section>
+
+        <section class="tele-block tele-score">
+          <h3>Score</h3>
+          <div class="live-score" id="liveScore">
+            <div class="score-row">
+              <span class="score-key"><span class="score-dot g"></span>Green</span>
+              <span class="score-val"><strong id="scoreGreen">0</strong>/<span id="scoreGreenTotal">0</span></span>
+              <span class="score-pts" id="scoreGreenPts">0</span>
+            </div>
+            <div class="score-row">
+              <span class="score-key"><span class="score-dot r"></span>Red</span>
+              <span class="score-val"><strong id="scoreRed">0</strong>/<span id="scoreRedTotal">0</span></span>
+              <span class="score-pts" id="scoreRedPts">0</span>
+            </div>
+            <div class="score-row score-indications">
+              <span class="score-key">Indications</span>
+              <span class="score-val score-indications-val">
+                <strong id="scoreIndUnharmed">0</strong>G ·
+                <strong id="scoreIndHarmed">0</strong>R
+              </span>
+              <span class="score-pts">—</span>
+            </div>
+            <div class="score-row">
+              <span class="score-key"><span class="score-dot s"></span>Exit</span>
+              <span class="score-val" id="scoreExit">—</span>
+              <span class="score-pts" id="scoreExitPts">0</span>
+            </div>
+            <div class="score-row">
+              <span class="score-key">Count bonus</span>
+              <span class="score-val" id="scoreCount">—</span>
+              <span class="score-pts" id="scoreCountPts">0</span>
+            </div>
+            <div class="score-row score-count-detail" id="scoreCountDetail" hidden>
+              <span class="score-detail" id="scoreCountDetailText"></span>
+            </div>
+            <div class="score-row score-total">
+              <span class="score-key">Total</span>
+              <span></span>
+              <span class="score-pts" id="scoreTotal">0</span>
+            </div>
+          </div>
+        </section>
+
+        </div>
+
+        <!-- LoP picker: replaces the telemetry panels temporarily during LoP choice -->
+        <div class="lop-picker" id="lopPicker" hidden>
+          <h3>Lack of progress</h3>
+          <p class="lop-help">
+            Per RCJA rule A5.5.2, the robot can be moved to the Start tile or any
+            previously-identified victim tile. Score is preserved.
+          </p>
+
+          <div class="lop-section">
+            <div class="lop-section-title">1. Move robot to:</div>
+            <div class="lop-checkpoints" id="lopCheckpoints">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <div class="lop-section">
+            <div class="lop-section-title">2. Facing:</div>
+            <div class="lop-direction" id="lopDirection">
+              <button class="lop-dir-btn" data-dir="N" title="North (up)">N</button>
+              <button class="lop-dir-btn" data-dir="E" title="East (right)">E</button>
+              <button class="lop-dir-btn" data-dir="S" title="South (down)">S</button>
+              <button class="lop-dir-btn" data-dir="W" title="West (left)">W</button>
+            </div>
+          </div>
+
+          <div class="lop-section">
+            <div class="lop-section-title">3. Also press button:</div>
+            <div class="lop-button-press" id="lopButtonPress">
+              <button class="lop-btn-press-btn selected" data-btn="None">None</button>
+              <button class="lop-btn-press-btn" data-btn="A">A</button>
+              <button class="lop-btn-press-btn" data-btn="B">B</button>
+              <button class="lop-btn-press-btn" data-btn="C">C</button>
+            </div>
+            <div class="lop-checkbox-hint">Per rule 2.2.1, the operator presses a physical button when relocating. Your code can poll <code>buttonA.pressed()</code> etc. to react.</div>
+          </div>
+
+          <div class="lop-section">
+            <label class="lop-checkbox">
+              <input type="checkbox" id="lopResetCode">
+              <span>Also re-run <code>setup()</code></span>
+            </label>
+            <div class="lop-checkbox-hint">Fallback option. Resets program variables. Score &amp; clock are kept.</div>
+          </div>
+
+          <div class="lop-actions">
+            <button class="btn secondary" id="lopCancel">Cancel</button>
+            <button class="btn" id="lopConfirm" disabled>Confirm</button>
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- Maze -->
+      <div class="maze-col">
+        <!-- Getting started callout — shown to first-time users above the maze.
+             Dismissable; the choice persists across reloads via localStorage. -->
+        <div class="getting-started" id="gettingStarted">
+          <button class="gs-dismiss" id="gsDismiss" aria-label="Dismiss this guide" title="Dismiss (won't show again)">×</button>
+          <div class="gs-title">Getting started</div>
+          <ol class="gs-steps">
+            <li><strong>Load a maze.</strong> Click <em>Test maze</em> in the toolbar above, paint your own with the brushes, or import a JSON file.</li>
+            <li><strong>Try the starter code.</strong> Already loaded in the editor below — read the comments to see what each part does.</li>
+            <li><strong>Press Run.</strong> Watch the robot. The API guide on the right of the editor explains every sensor and motor call.</li>
+          </ol>
+        </div>
+        <div class="maze-stage">
+          <svg id="mazeSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+      </div>
+
+      <!-- Right telemetry column: live sensors only -->
+      <aside class="telemetry telemetry-right">
+        <section class="tele-block">
+          <h3>Live sensors</h3>
+          <div class="sensor-panel" id="sensorPanel">
+            <div class="sensor-empty">Sensor values appear when you press Run.</div>
+          </div>
+        </section>
+      </aside>
+
+    </div>
+
+    <div class="run-bar">
+      <button class="btn" id="btnRun">▶ Run</button>
+      <button class="btn secondary" id="btnStop">■ Stop</button>
+      <button class="btn secondary" id="btnResetRun" title="Reset score, clock, and robot position. Maze and code untouched.">↻ Reset run</button>
+      <button class="btn warn" id="btnLoP" title="Lack of Progress — move robot to Start or a previously identified victim">⚑ Lack of progress</button>
+      <span class="speed-control" title="Pre-arm a button press for the next Run. Per rule 2.2.1, the operator can press a button at start. Your code can poll buttonA.pressed() etc.">
+        Start press
+        <select id="startPressSelect">
+          <option value="None" selected>None</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+        </select>
+      </span>
+      <span class="speed-control">
+        Speed
+        <select id="speedSelect">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="5">5×</option>
+          <option value="20">20× (sprint)</option>
+        </select>
+      </span>
+      <span class="timer" id="timer">T-180.0s</span>
+    </div>
+
+    <div class="status-strip" id="statusStrip">
+      <span class="status-pill">IDLE</span>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       ZONE 2: CODE EDITOR (60%) + API GUIDE (40%)
+       ============================================================ -->
+  <div class="code-zone">
+    <div class="code-grid">
+
+      <div class="editor-col">
+        <div class="col-header">Code</div>
+        <textarea class="code-editor" id="codeEditor" spellcheck="false"></textarea>
+      </div>
+
+      <aside class="docs-col">
+        <div class="col-header">API guide</div>
+        <div class="docs-scroll">
+
+          <details open>
+            <summary>setup() and loop()</summary>
+            <div class="doc-body">
+              <p>Define two functions. The simulator calls them like an Arduino sketch:</p>
+              <pre>function setup() {
+  // Runs ONCE
+}
+function loop() {
+  // Runs ~50× per sec
+}</pre>
+              <p>Variables and helpers declared outside these functions are shared.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>ToF distance sensors</summary>
+            <div class="doc-body">
+              <pre>frontToF.read()  // mm or -1
+leftToF.read()
+rightToF.read()</pre>
+              <p>Range up to ~1200 mm. Noisy: ±8 mm plus 1% of distance, occasional dropouts to <code>-1</code>. Always check for <code>-1</code>.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Colour sensor</summary>
+            <div class="doc-body">
+              <pre>const c = colourSensor.read();
+// { r, g, b, c }  16-bit counts</pre>
+              <p><strong>Mounted 60 mm forward of the robot's centre</strong> (visible on the maze as the small dot with a dashed ring). This means the sensor sees colour <em>before</em> the robot's centre arrives — when red appears, you've usually got more driving to do before you're properly over the victim. Footprint ~20 mm radius. Write a classifier to turn raw RGB into a colour name.</p>
+              <p style="margin-top:10px; padding:10px 12px; background:var(--warning-soft); border-left:3px solid var(--warning); font-size:0.88rem;">
+                <strong>⚠ Sim vs. real-hardware note.</strong> The simulator uses idealised colours — plain floor, silver, red, green, and black are well-separated and easy to distinguish. <strong>This is not the case on real hardware.</strong> Cardboard tile colour varies by batch, lighting changes between rooms, and the TCS34725's gain and integration time need calibration. When you port your code to the Mega + TCS34725, expect to recalibrate every threshold. A sample-and-tune-on-site routine is one of the first things you'll add to the real build.
+              </p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Encoders</summary>
+            <div class="doc-body">
+              <pre>leftEncoder.read()    // ticks
+rightEncoder.read()
+leftEncoder.write(0)  // reset</pre>
+              <p>2000 ticks per output-shaft revolution. Slip ±1% per tick — dead-reckoning drifts over distance.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Motors</summary>
+            <div class="doc-body">
+              <pre>leftMotor.drive(speed)  // -255..+255
+rightMotor.drive(speed)
+leftMotor.brake()
+leftMotor.standby()</pre>
+              <p>Positive = forward. Top speed ~80 RPM (de-rated, matches real hardware). Crossing one tile takes ~1.2 s at full power.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Buttons</summary>
+            <div class="doc-body">
+              <pre>buttonA.pressed()    // returns true once per press
+buttonB.pressed()
+buttonC.pressed()</pre>
+              <p>Per RCJA rule 2.2.1, the real robot has manual start/restart controls. The sim exposes three buttons. <strong>You decide what each one does</strong> — strategy selection, encoder reset on LoP relocation, anything else.</p>
+              <p>Edge-triggered: <code>pressed()</code> returns <code>true</code> the first time you call it after a press fires, then <code>false</code> until the next press. Calling it more than once per tick will only see <code>true</code> once.</p>
+              <p>Presses can only fire at <strong>start</strong> (via the dropdown next to Run) or on <strong>Lack of Progress</strong> confirm (via the picker). Mid-run presses are not allowed by the rules.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Indicating victims and exit</summary>
+            <div class="doc-body">
+              <pre>indicate('victim_unharmed')      // green tile
+indicate('victim_harmed')        // red tile
+indicate('exit')                 // Start tile, fully contained
+
+// After half the victims found, on the Start tile,
+// report your own tally (N). N must MATCH the count of
+// valid indications you've made — false positives
+// (indicating on empty floor) cause a mismatch and
+// you lose the bonus.
+indicate('count_unharmed', N)    // N = greens you've counted
+indicate('count_harmed', N)      // N = reds you've counted</pre>
+              <p>RCJA A6.2 requires stopping for ≥1 s over the victim. The sim doesn't enforce that — your code should.</p>
+              <p>The "Indications" row in the score panel shows the live count of valid indications (your indicate() calls that landed over a real victim, including duplicates). Match your reported N to those numbers.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Debug + timing</summary>
+            <div class="doc-body">
+              <pre>Serial.println("hello")
+Serial.print(value)
+millis()    // sim time, ms
+delay(ms)   // pause loop()</pre>
+            </div>
+          </details>
+
+          <details>
+            <summary>Painting the maze</summary>
+            <div class="doc-body">
+              <ul>
+                <li><strong>Wall:</strong> click near a tile edge to toggle</li>
+                <li><strong>Tile tools:</strong> click to fill</li>
+                <li><strong>Start:</strong> only one — placing new moves it</li>
+                <li><strong>Reset:</strong> default 6×6 perimeter</li>
+                <li><strong>Clear interior:</strong> wipe interior, keep perimeter + start</li>
+              </ul>
+            </div>
+          </details>
+
+          <details>
+            <summary>Not in v1</summary>
+            <div class="doc-body">
+              <ul>
+                <li>No IMU — estimate heading from encoders</li>
+                <li>No multi-floor / ramps / debris</li>
+                <li>No 1-second-stop enforcement</li>
+                <li>No save/load of mazes</li>
+              </ul>
+            </div>
+          </details>
+
+        </div>
+      </aside>
+
+    </div>
+  </div>
+
+  <!-- Serial output -->
+  <div class="feedback" id="feedback"></div>
+
+  <!-- Post-run debrief panel -->
+  <div class="score-panel hidden" id="scorePanel"></div>
+
+  <footer>
+    Year 11 Software Engineering · St George Christian School · 11SE Mighty Maisy unit · v2 continuous-mm
+  </footer>
+
+</div>
+
+<script src="sandbox.js"></script>
+</body>
+</html>
