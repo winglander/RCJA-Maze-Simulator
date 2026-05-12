@@ -866,7 +866,7 @@ function buildScorerButtons() {
     btnU.style.fontSize = '0.85rem';
     btnU.innerHTML = `Count Unharmed <span class="pts">+${d.scoring.countBonusUnharmed}</span>`;
     btnU.onclick = () => {
-      if (scorer && runState === 'running') {
+      if (scorer && runState !== 'idle') {
         const reported = scorer.countAdjust.green;
         scorer.claimCount('unharmed', reported);
         updateScorerUI();
@@ -880,7 +880,7 @@ function buildScorerButtons() {
     btnH.style.fontSize = '0.85rem';
     btnH.innerHTML = `Count Harmed <span class="pts">+${d.scoring.countBonusHarmed}</span>`;
     btnH.onclick = () => {
-      if (scorer && runState === 'running') {
+      if (scorer && runState !== 'idle') {
         const reported = scorer.countAdjust.red;
         scorer.claimCount('harmed', reported);
         updateScorerUI();
@@ -910,7 +910,7 @@ function buildScorerButtons() {
   restartBtn.style.background = '#7f1d1d';
   restartBtn.innerHTML = 'Restart (Reset All Scores)';
   restartBtn.onclick = () => {
-    if (scorer && runState === 'running' && confirm('RESTART: All scores will be reset. Timer continues. Are you sure?')) {
+    if (scorer && runState !== 'idle' && confirm('RESTART: All scores will be reset. Timer continues. Are you sure?')) {
       scorer.restart();
       updateScorerUI();
       renderMaze();
