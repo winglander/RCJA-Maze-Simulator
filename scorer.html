@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RCJA Maze — Live Scorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   RCJA Maze Live Scorer — Styles
+   ============================================================ */
+:root {
+  --bg: #1a1a2e;
+  --surface: #16213e;
+  --surface2: #0f3460;
+  --accent: #e94560;
+  --green: #2d7a26;
+  --red: #c73e1d;
+  --silver: #c0c0c0;
+  --text: #eee;
+  --text-dim: #999;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* --- Header --- */
+header {
+  background: var(--surface);
+  border-bottom: 2px solid var(--accent);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+header h1 {
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+header h1 em { color: var(--accent); font-style: normal; }
+
+.division-select {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.division-select label { font-size: 0.85rem; color: var(--text-dim); }
+.division-select select {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.mode-tabs {
+  display: flex;
+  gap: 4px;
+}
+.mode-tabs button {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  padding: 6px 16px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.mode-tabs button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.mode-tabs button:hover:not(.active) { background: #1a4a80; }
+
+/* --- Main layout --- */
+.app-layout {
+  display: flex;
+  gap: 0;
+  min-height: calc(100vh - 60px);
+}
+
+/* --- Maze panel (shared) --- */
+.maze-panel {
+  flex: 0 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.maze-panel svg {
+  border: 2px solid #333;
+  border-radius: 4px;
+  background: #f1eee6;
+  max-width: 100%;
+  cursor: crosshair;
+}
+
+/* --- Designer sidebar --- */
+.designer-panel {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border-left: 1px solid #333;
+  overflow-y: auto;
+}
+
+.tool-group {
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 12px;
+}
+.tool-group h3 {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.tool-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tool-btn {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  border: 2px solid #555;
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tool-btn:hover { border-color: var(--accent); }
+.tool-btn.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+.tool-btn.start-btn.active { border-color: var(--silver); background: var(--silver); color: #000; }
+.tool-btn.black-btn.active { border-color: #555; background: #14110f; color: #fff; }
+.tool-btn.green-btn.active { border-color: var(--green); background: var(--green); color: #fff; }
+.tool-btn.red-btn.active { border-color: var(--red); background: var(--red); color: #fff; }
+.tool-btn.blue-btn.active { border-color: #2563eb; background: #2563eb; color: #fff; }
+.tool-btn.yellow-btn.active { border-color: #ca8a04; background: #ca8a04; color: #fff; }
+
+.action-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.action-btn {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 5px 10px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.action-btn:hover { background: var(--surface2); }
+
+.grid-size-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.grid-size-row label { font-size: 0.8rem; color: var(--text-dim); }
+.grid-size-row input {
+  width: 50px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 3px 6px;
+  text-align: center;
+}
+
+/* --- Scorer panel --- */
+.scorer-panel {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border-left: 1px solid #333;
+  overflow-y: auto;
+}
+
+.score-display {
+  background: var(--bg);
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+.score-display .total-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.score-display .total-pts {
+  font-family: var(--font-mono);
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.1;
+}
+
+.timer-display {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  text-align: center;
+  color: var(--text);
+  padding: 8px;
+  background: var(--surface2);
+  border-radius: 6px;
+}
+.timer-display.warning { color: #f59e0b; }
+.timer-display.danger { color: var(--red); }
+
+.score-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.score-btn {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.score-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.score-btn:hover:not(:disabled) { filter: brightness(1.15); }
+
+.score-btn.green { background: var(--green); }
+.score-btn.red { background: var(--red); }
+.score-btn.silver { background: #666; color: #fff; }
+.score-btn.blue { background: #2563eb; }
+.score-btn.yellow { background: #ca8a04; }
+.score-btn.exit-btn { background: var(--silver); color: #000; }
+.score-btn .pts { opacity: 0.8; font-size: 0.85rem; }
+
+.score-row { display: flex; gap: 8px; }
+.score-row .score-btn { flex: 1; }
+
+.run-controls {
+  display: flex;
+  gap: 8px;
+}
+.run-controls button {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #fff;
+  transition: background 0.15s;
+}
+.run-controls .start-run { background: var(--green); }
+.run-controls .stop-run { background: var(--red); }
+.run-controls .reset-run { background: #555; }
+.run-controls button:hover { filter: brightness(1.15); }
+.run-controls button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.score-log {
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  max-height: 200px;
+  overflow-y: auto;
+  flex: 1;
+}
+.score-log .log-entry {
+  padding: 3px 0;
+  border-bottom: 1px solid #222;
+  display: flex;
+  justify-content: space-between;
+}
+.score-log .log-entry .log-time { color: var(--text-dim); }
+.score-log .log-entry.ok { color: var(--green); }
+.score-log .log-entry.bonus { color: #f59e0b; }
+.score-log .log-entry.info { color: var(--text-dim); }
+
+.score-summary {
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+.score-summary table { width: 100%; border-collapse: collapse; }
+.score-summary td { padding: 3px 6px; }
+.score-summary td:last-child { text-align: right; font-weight: 600; }
+.score-summary tr.total-row td {
+  border-top: 2px solid var(--accent);
+  padding-top: 6px;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+/* Hidden panel */
+.hidden { display: none !important; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .app-layout { flex-direction: column; }
+  .maze-panel { padding: 8px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>RCJA Maze <em>Live Scorer</em></h1>
+  <div class="division-select">
+    <label>Division:</label>
+    <select id="divisionSel">
+      <option value="mighty_maisy">Mighty Maisy</option>
+      <option value="intermediate">Intermediate</option>
+    </select>
+  </div>
+  <div class="mode-tabs">
+    <button id="tabDesign" class="active" onclick="switchMode('design')">Design</button>
+    <button id="tabScore" onclick="switchMode('score')">Score</button>
+  </div>
+</header>
+
+<div class="app-layout">
+  <!-- Maze SVG (shared between design and score modes) -->
+  <div class="maze-panel">
+    <svg id="mazeSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div style="font-size:0.75rem;color:var(--text-dim);font-family:var(--font-mono);" id="mazeInfo"></div>
+  </div>
+
+  <!-- Designer panel -->
+  <div class="designer-panel" id="designPanel">
+    <div class="tool-group">
+      <h3>Grid Size</h3>
+      <div class="grid-size-row">
+        <label>W:</label>
+        <input type="number" id="gridW" min="2" max="12" value="6">
+        <label>H:</label>
+        <input type="number" id="gridH" min="2" max="12" value="6">
+        <button class="action-btn" onclick="resizeGrid()">Apply</button>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <h3>Paint Tool</h3>
+      <div class="tool-row" id="tileTools">
+        <!-- populated by JS per division -->
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <h3>Wall Tool</h3>
+      <div class="tool-row">
+        <button class="tool-btn active" id="wallToggleBtn" onclick="setTool('wall')">Toggle Walls</button>
+      </div>
+      <p style="font-size:0.7rem;color:var(--text-dim);margin-top:6px;">Click near a tile edge to toggle a wall.</p>
+    </div>
+
+    <div class="tool-group">
+      <h3>Actions</h3>
+      <div class="action-row">
+        <button class="action-btn" onclick="clearInterior()">Clear Interior</button>
+        <button class="action-btn" onclick="resetMaze()">Reset Maze</button>
+      </div>
+      <div class="action-row" style="margin-top:6px;">
+        <button class="action-btn" onclick="exportMaze()">Export JSON</button>
+        <button class="action-btn" onclick="document.getElementById('importFile').click()">Import JSON</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importMaze(event)">
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <h3>Maze Info</h3>
+      <div id="designInfo" style="font-family:var(--font-mono);font-size:0.8rem;"></div>
+    </div>
+  </div>
+
+  <!-- Scorer panel -->
+  <div class="scorer-panel hidden" id="scorePanel">
+    <div class="run-controls">
+      <button class="start-run" id="btnStartRun" onclick="startRun()">Start Run</button>
+      <button class="stop-run" id="btnStopRun" onclick="stopRun()" disabled>Stop Run</button>
+      <button class="reset-run" id="btnResetRun" onclick="resetRun()">Reset</button>
+    </div>
+
+    <div class="timer-display" id="timerDisplay">0:00</div>
+
+    <div class="score-display">
+      <div class="total-label">Total Score</div>
+      <div class="total-pts" id="totalPts">0</div>
+    </div>
+
+    <div class="score-actions" id="scoreActions">
+      <!-- populated by JS per division -->
+    </div>
+
+    <div class="score-summary" id="scoreSummary">
+      <!-- populated by JS -->
+    </div>
+
+    <div class="score-log" id="scoreLog">
+      <!-- log entries appear here -->
+    </div>
+  </div>
+</div>
+
+
+<script>
+/* ============================================================
+   RCJA Maze Live Scorer — Engine
+   ============================================================ */
+
+// --- Division definitions ---
+const DIVISIONS = {
+  mighty_maisy: {
+    name: 'Mighty Maisy',
+    tileMM: 290,
+    wallThickMM: 10,
+    victimMM: 50,
+    defaultGridW: 6,
+    defaultGridH: 6,
+    timeLimitMs: 180_000,
+    tileTypes: {
+      EMPTY: 0, START: 1, BLACK: 2, RED: 3, GREEN: 4
+    },
+    tileLabels: {
+      0: 'Empty', 1: 'Start', 2: 'Black', 3: 'Red Victim', 4: 'Green Victim'
+    },
+    tileColours: {
+      0: null, 1: 'silver', 2: '#14110f', 3: '#c73e1d', 4: '#2d7a26'
+    },
+    tileBtnClass: {
+      0: '', 1: 'start-btn', 2: 'black-btn', 3: 'red-btn', 4: 'green-btn'
+    },
+    scoring: {
+      greenVictim: 10,
+      redVictim: 25,
+      exitBonus: 25,
+      countBonusUnharmed: 25,
+      countBonusHarmed: 25,
+    },
+    hasCountBonus: true,
+    hasExitBonus: true,
+    victimTypes: ['green', 'red'],
+  },
+  intermediate: {
+    name: 'Intermediate',
+    tileMM: 290,
+    wallThickMM: 10,
+    victimMM: 50,
+    defaultGridW: 8,
+    defaultGridH: 8,
+    timeLimitMs: 240_000,
+    tileTypes: {
+      EMPTY: 0, START: 1, BLACK: 2, RED: 3, GREEN: 4
+    },
+    tileLabels: {
+      0: 'Empty', 1: 'Start', 2: 'Black', 3: 'Red Victim',
+      4: 'Green Victim'
+    },
+    tileColours: {
+      0: null, 1: 'silver', 2: '#14110f', 3: '#c73e1d',
+      4: '#2d7a26'
+    },
+    tileBtnClass: {
+      0: '', 1: 'start-btn', 2: 'black-btn', 3: 'red-btn',
+      4: 'green-btn'
+    },
+    scoring: {
+      greenVictim: 10,
+      redVictim: 25,
+      rescueKit: 10,
+      exitBonus: 25,
+      countBonusUnharmed: 25,
+      countBonusHarmed: 25,
+    },
+    hasCountBonus: true,
+    hasExitBonus: true,
+    hasRescueKits: true,
+    victimTypes: ['green', 'red'],
+  }
+};
+
+// --- State ---
+let currentDivision = 'mighty_maisy';
+let currentMode = 'design';
+let currentTool = 'tile';
+let currentTileType = 0;
+let gridW, gridH, tiles, wallsH, wallsV;
+let runState = 'idle'; // idle | running | stopped
+let runTimer = null;
+let elapsedMs = 0;
+let scorer = null;
+
+function div() { return DIVISIONS[currentDivision]; }
+
+// --- World / Maze ---
+function initMaze(w, h) {
+  gridW = w;
+  gridH = h;
+  tiles = Array.from({ length: h }, () => Array(w).fill(0));
+  wallsH = Array.from({ length: h + 1 }, () => Array(w).fill(false));
+  wallsV = Array.from({ length: h }, () => Array(w + 1).fill(false));
+  // Perimeter walls
+  for (let x = 0; x < w; x++) { wallsH[0][x] = true; wallsH[h][x] = true; }
+  for (let y = 0; y < h; y++) { wallsV[y][0] = true; wallsV[y][w] = true; }
+  // Default start position
+  tiles[h - 1][0] = div().tileTypes.START;
+}
+
+function setTile(x, y, type) {
+  const d = div();
+  if (type === d.tileTypes.START) {
+    for (let r = 0; r < gridH; r++)
+      for (let c = 0; c < gridW; c++)
+        if (tiles[r][c] === d.tileTypes.START) tiles[r][c] = d.tileTypes.EMPTY;
+  }
+  tiles[y][x] = type;
+}
+
+function toggleWall(orientation, x, y) {
+  if (orientation === 'h') {
+    if (y < 0 || y > gridH || x < 0 || x >= gridW) return;
+    wallsH[y][x] = !wallsH[y][x];
+  } else {
+    if (y < 0 || y >= gridH || x < 0 || x > gridW) return;
+    wallsV[y][x] = !wallsV[y][x];
+  }
+}
+
+function countVictims() {
+  const d = div();
+  const counts = {};
+  for (const vt of d.victimTypes) counts[vt] = 0;
+  for (let y = 0; y < gridH; y++) {
+    for (let x = 0; x < gridW; x++) {
+      const t = tiles[y][x];
+      if (t === d.tileTypes.GREEN) counts.green++;
+      if (t === d.tileTypes.RED) counts.red++;
+    }
+  }
+  return counts;
+}
+
+// --- SVG Renderer ---
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function renderMaze() {
+  const svg = document.getElementById('mazeSvg');
+  const d = div();
+  const tileMM = d.tileMM;
+  const fieldW = gridW * tileMM;
+  const fieldH = gridH * tileMM;
+  const pad = 20;
+
+  svg.setAttribute('viewBox', `${-pad} ${-pad} ${fieldW + 2 * pad} ${fieldH + 2 * pad}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  svg.style.width = Math.min(560, fieldW * 0.5 + 40) + 'px';
+  svg.style.height = Math.min(560, fieldH * 0.5 + 40) + 'px';
+
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+  // Defs
+  const defs = document.createElementNS(SVG_NS, 'defs');
+  defs.innerHTML = `
+    <linearGradient id="silverGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#dcdcdc"/>
+      <stop offset="50%" stop-color="#f5f5f5"/>
+      <stop offset="100%" stop-color="#b8b8b8"/>
+    </linearGradient>
+    <linearGradient id="checkpointGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="50%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  `;
+  svg.appendChild(defs);
+
+  // Floor
+  const floor = document.createElementNS(SVG_NS, 'rect');
+  floor.setAttribute('x', 0); floor.setAttribute('y', 0);
+  floor.setAttribute('width', fieldW); floor.setAttribute('height', fieldH);
+  floor.setAttribute('fill', '#f1eee6');
+  svg.appendChild(floor);
+
+  // Tile backgrounds
+  for (let y = 0; y < gridH; y++) {
+    for (let x = 0; x < gridW; x++) {
+      const t = tiles[y][x];
+      if (t === d.tileTypes.START) {
+        const r = document.createElementNS(SVG_NS, 'rect');
+        r.setAttribute('x', x * tileMM); r.setAttribute('y', y * tileMM);
+        r.setAttribute('width', tileMM); r.setAttribute('height', tileMM);
+        r.setAttribute('fill', 'url(#silverGrad)');
+        r.setAttribute('stroke', '#888'); r.setAttribute('stroke-width', 1);
+        svg.appendChild(r);
+      } else if (t === d.tileTypes.BLACK) {
+        const r = document.createElementNS(SVG_NS, 'rect');
+        r.setAttribute('x', x * tileMM); r.setAttribute('y', y * tileMM);
+        r.setAttribute('width', tileMM); r.setAttribute('height', tileMM);
+        r.setAttribute('fill', '#14110f');
+        svg.appendChild(r);
+      }
+    }
+  }
+
+  // Grid lines
+  for (let i = 0; i <= gridW; i++) {
+    const ln = document.createElementNS(SVG_NS, 'line');
+    ln.setAttribute('x1', i * tileMM); ln.setAttribute('y1', 0);
+    ln.setAttribute('x2', i * tileMM); ln.setAttribute('y2', fieldH);
+    ln.setAttribute('stroke', '#c8bfa8'); ln.setAttribute('stroke-width', 1);
+    svg.appendChild(ln);
+  }
+  for (let i = 0; i <= gridH; i++) {
+    const ln = document.createElementNS(SVG_NS, 'line');
+    ln.setAttribute('x1', 0); ln.setAttribute('y1', i * tileMM);
+    ln.setAttribute('x2', fieldW); ln.setAttribute('y2', i * tileMM);
+    ln.setAttribute('stroke', '#c8bfa8'); ln.setAttribute('stroke-width', 1);
+    svg.appendChild(ln);
+  }
+
+  // Victims
+  for (let y = 0; y < gridH; y++) {
+    for (let x = 0; x < gridW; x++) {
+      const t = tiles[y][x];
+      const isVictim = t === d.tileTypes.RED || t === d.tileTypes.GREEN;
+      if (isVictim) {
+        const cx = x * tileMM + tileMM / 2;
+        const cy = y * tileMM + tileMM / 2;
+        const vm = tileMM / 2;
+        const r = document.createElementNS(SVG_NS, 'rect');
+        r.setAttribute('x', cx - vm / 2);
+        r.setAttribute('y', cy - vm / 2);
+        r.setAttribute('width', vm); r.setAttribute('height', vm);
+        r.setAttribute('rx', vm * 0.1);
+        let fillCol = '#2d7a26';
+        if (t === d.tileTypes.RED) fillCol = '#c73e1d';
+        r.setAttribute('fill', fillCol);
+        r.setAttribute('stroke', '#14110f'); r.setAttribute('stroke-width', 2);
+        svg.appendChild(r);
+
+        // Score marker
+        const key = `${x},${y}`;
+        if (scorer && scorer.scored.has(key)) {
+          const tick = document.createElementNS(SVG_NS, 'text');
+          tick.setAttribute('x', cx); tick.setAttribute('y', cy + vm * 0.15);
+          tick.setAttribute('text-anchor', 'middle');
+          tick.setAttribute('font-family', 'JetBrains Mono, monospace');
+          tick.setAttribute('font-size', vm * 0.6);
+          tick.setAttribute('font-weight', '700');
+          tick.setAttribute('fill', '#f5f1e8');
+          tick.textContent = '✓';
+          svg.appendChild(tick);
+
+          if (d.hasRescueKits && scorer.rescueKitsDeployed.has(key)) {
+            const kit = document.createElementNS(SVG_NS, 'text');
+            kit.setAttribute('x', cx); kit.setAttribute('y', cy - vm * 0.3);
+            kit.setAttribute('text-anchor', 'middle');
+            kit.setAttribute('font-family', 'JetBrains Mono, monospace');
+            kit.setAttribute('font-size', vm * 0.3);
+            kit.setAttribute('font-weight', '700');
+            kit.setAttribute('fill', '#f5f1e8');
+            kit.textContent = 'RK';
+            svg.appendChild(kit);
+          }
+        }
+      }
+    }
+  }
+
+  // Walls
+  const wallThick = d.wallThickMM;
+  for (let y = 0; y <= gridH; y++) {
+    for (let x = 0; x < gridW; x++) {
+      if (wallsH[y] && wallsH[y][x]) {
+        const ln = document.createElementNS(SVG_NS, 'line');
+        ln.setAttribute('x1', x * tileMM); ln.setAttribute('y1', y * tileMM);
+        ln.setAttribute('x2', (x + 1) * tileMM); ln.setAttribute('y2', y * tileMM);
+        ln.setAttribute('stroke', '#14110f');
+        ln.setAttribute('stroke-width', wallThick);
+        ln.setAttribute('stroke-linecap', 'square');
+        svg.appendChild(ln);
+      }
+    }
+  }
+  for (let y = 0; y < gridH; y++) {
+    for (let x = 0; x <= gridW; x++) {
+      if (wallsV[y] && wallsV[y][x]) {
+        const ln = document.createElementNS(SVG_NS, 'line');
+        ln.setAttribute('x1', x * tileMM); ln.setAttribute('y1', y * tileMM);
+        ln.setAttribute('x2', x * tileMM); ln.setAttribute('y2', (y + 1) * tileMM);
+        ln.setAttribute('stroke', '#14110f');
+        ln.setAttribute('stroke-width', wallThick);
+        ln.setAttribute('stroke-linecap', 'square');
+        svg.appendChild(ln);
+      }
+    }
+  }
+
+  updateDesignInfo();
+}
+
+// --- SVG click handler ---
+document.getElementById('mazeSvg').addEventListener('click', (e) => {
+  if (currentMode !== 'design') return;
+  const svg = document.getElementById('mazeSvg');
+  const pt = svg.createSVGPoint();
+  pt.x = e.clientX; pt.y = e.clientY;
+  const svgPt = pt.matrixTransform(svg.getScreenCTM().inverse());
+  const tileMM = div().tileMM;
+
+  if (currentTool === 'wall') {
+    const tx = Math.floor(svgPt.x / tileMM);
+    const ty = Math.floor(svgPt.y / tileMM);
+    const lx = svgPt.x - tx * tileMM;
+    const ly = svgPt.y - ty * tileMM;
+    const dTop = ly, dBot = tileMM - ly, dLeft = lx, dRight = tileMM - lx;
+    const minD = Math.min(dTop, dBot, dLeft, dRight);
+    if (minD === dTop)        toggleWall('h', tx, ty);
+    else if (minD === dBot)   toggleWall('h', tx, ty + 1);
+    else if (minD === dLeft)  toggleWall('v', tx, ty);
+    else                      toggleWall('v', tx + 1, ty);
+  } else {
+    const tx = Math.floor(svgPt.x / tileMM);
+    const ty = Math.floor(svgPt.y / tileMM);
+    if (tx < 0 || tx >= gridW || ty < 0 || ty >= gridH) return;
+    setTile(tx, ty, currentTileType);
+  }
+  renderMaze();
+});
+
+// --- Click handler for scorer mode (cycle victim state) ---
+document.getElementById('mazeSvg').addEventListener('click', (e) => {
+  if (currentMode !== 'score' || runState !== 'running' || !scorer) return;
+  const svg = document.getElementById('mazeSvg');
+  const pt = svg.createSVGPoint();
+  pt.x = e.clientX; pt.y = e.clientY;
+  const svgPt = pt.matrixTransform(svg.getScreenCTM().inverse());
+  const tileMM = div().tileMM;
+  const tx = Math.floor(svgPt.x / tileMM);
+  const ty = Math.floor(svgPt.y / tileMM);
+  if (tx < 0 || tx >= gridW || ty < 0 || ty >= gridH) return;
+
+  const d = div();
+  const t = tiles[ty][tx];
+  const key = `${tx},${ty}`;
+  const isVictim = t === d.tileTypes.GREEN || t === d.tileTypes.RED;
+  if (!isVictim) return;
+
+  const isScored = scorer.scored.has(key);
+  const hasKit = scorer.rescueKitsDeployed.has(key);
+  const isRed = t === d.tileTypes.RED;
+
+  if (!isScored) {
+    const colour = isRed ? 'red' : 'green';
+    scorer.scoreVictim(tx, ty, colour);
+  } else if (d.hasRescueKits && isRed && !hasKit) {
+    scorer.deployRescueKit(tx, ty);
+  } else {
+    scorer.unscoreVictim(tx, ty);
+  }
+  updateScorerUI();
+  renderMaze();
+});
+
+// --- Tool selection ---
+function setTool(tool, tileType) {
+  currentTool = tool;
+  if (tileType !== undefined) currentTileType = tileType;
+
+  document.querySelectorAll('#tileTools .tool-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('wallToggleBtn').classList.remove('active');
+
+  if (tool === 'wall') {
+    document.getElementById('wallToggleBtn').classList.add('active');
+  } else {
+    const btn = document.querySelector(`#tileTools .tool-btn[data-type="${tileType}"]`);
+    if (btn) btn.classList.add('active');
+  }
+}
+
+// --- Build tile tool buttons per division ---
+function buildTileTools() {
+  const d = div();
+  const container = document.getElementById('tileTools');
+  container.innerHTML = '';
+  for (const [typeStr, label] of Object.entries(d.tileLabels)) {
+    const type = parseInt(typeStr);
+    const btn = document.createElement('button');
+    btn.className = `tool-btn ${d.tileBtnClass[type] || ''}`;
+    btn.dataset.type = type;
+    btn.textContent = label;
+    btn.onclick = () => setTool('tile', type);
+    container.appendChild(btn);
+  }
+  setTool('tile', 0);
+}
+
+// --- Build scorer buttons per division ---
+function buildScorerButtons() {
+  const d = div();
+  const container = document.getElementById('scoreActions');
+  container.innerHTML = '';
+
+  // Instructions
+  const helpArea = document.createElement('div');
+  helpArea.className = 'tool-group';
+  helpArea.innerHTML = `<h3>Scoring</h3>
+    <p style="font-size:0.8rem;color:var(--text-dim);font-family:var(--font-mono);margin:0;">
+      Tap a victim tile to cycle: unscored → scored${d.hasRescueKits ? ' → rescued (red only)' : ''} → unscored
+    </p>`;
+  container.appendChild(helpArea);
+
+  // Victim count tally with +/- adjustment
+  const countArea = document.createElement('div');
+  countArea.className = 'tool-group';
+  countArea.innerHTML = '<h3>Victim Count</h3>';
+  const countGrid = document.createElement('div');
+  countGrid.id = 'victimCountGrid';
+  countGrid.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+  countArea.appendChild(countGrid);
+  container.appendChild(countArea);
+
+  // Bonuses section
+  const bonusArea = document.createElement('div');
+  bonusArea.className = 'tool-group';
+  bonusArea.innerHTML = '<h3>Bonuses</h3>';
+  const bonusBtns = document.createElement('div');
+  bonusBtns.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+
+  if (d.hasExitBonus) {
+    const btn = document.createElement('button');
+    btn.className = 'score-btn exit-btn';
+    btn.id = 'btnExit';
+    btn.innerHTML = `Exit Bonus <span class="pts">+${d.scoring.exitBonus} pts</span>`;
+    btn.onclick = () => { if (scorer) { scorer.claimExit(); updateScorerUI(); renderMaze(); } };
+    bonusBtns.appendChild(btn);
+  }
+
+  if (d.hasCountBonus) {
+    const row = document.createElement('div');
+    row.className = 'score-row';
+
+    const btnU = document.createElement('button');
+    btnU.className = 'score-btn green';
+    btnU.id = 'btnCountUnharmed';
+    btnU.style.fontSize = '0.85rem';
+    btnU.innerHTML = `Count Unharmed <span class="pts">+${d.scoring.countBonusUnharmed}</span>`;
+    btnU.onclick = () => {
+      if (scorer && runState === 'running') {
+        const reported = scorer.countAdjust.green;
+        scorer.claimCount('unharmed', reported);
+        updateScorerUI();
+      }
+    };
+    row.appendChild(btnU);
+
+    const btnH = document.createElement('button');
+    btnH.className = 'score-btn red';
+    btnH.id = 'btnCountHarmed';
+    btnH.style.fontSize = '0.85rem';
+    btnH.innerHTML = `Count Harmed <span class="pts">+${d.scoring.countBonusHarmed}</span>`;
+    btnH.onclick = () => {
+      if (scorer && runState === 'running') {
+        const reported = scorer.countAdjust.red;
+        scorer.claimCount('harmed', reported);
+        updateScorerUI();
+      }
+    };
+    row.appendChild(btnH);
+
+    bonusBtns.appendChild(row);
+  }
+  bonusArea.appendChild(bonusBtns);
+  container.appendChild(bonusArea);
+
+  // Undo / Restart
+  const miscArea = document.createElement('div');
+  miscArea.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+
+  const undoBtn = document.createElement('button');
+  undoBtn.className = 'score-btn silver';
+  undoBtn.id = 'btnUndo';
+  undoBtn.innerHTML = 'Undo Last Action';
+  undoBtn.onclick = () => { if (scorer) { scorer.undo(); updateScorerUI(); renderMaze(); } };
+  miscArea.appendChild(undoBtn);
+
+  const restartBtn = document.createElement('button');
+  restartBtn.className = 'score-btn silver';
+  restartBtn.id = 'btnRestart';
+  restartBtn.style.background = '#7f1d1d';
+  restartBtn.innerHTML = 'Restart (Reset All Scores)';
+  restartBtn.onclick = () => {
+    if (scorer && runState === 'running' && confirm('RESTART: All scores will be reset. Timer continues. Are you sure?')) {
+      scorer.restart();
+      updateScorerUI();
+      renderMaze();
+    }
+  };
+  miscArea.appendChild(restartBtn);
+  container.appendChild(miscArea);
+}
+
+function updateVictimCounts() {
+  const grid = document.getElementById('victimCountGrid');
+  if (!grid || !scorer) return;
+  grid.innerHTML = '';
+
+  const greenCount = scorer.countAdjust.green;
+  const redCount = scorer.countAdjust.red;
+  const notRunning = runState !== 'running';
+
+  grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:10px;';
+
+  const makeCell = (label, colour, count, onMinus, onPlus) => {
+    const cell = document.createElement('div');
+    cell.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--bg);border-radius:6px;padding:10px 6px;';
+    const lbl = document.createElement('span');
+    lbl.style.cssText = `font-family:var(--font-mono);font-size:0.8rem;color:${colour};font-weight:600;`;
+    lbl.textContent = label;
+    const controls = document.createElement('div');
+    controls.style.cssText = 'display:flex;align-items:center;gap:10px;';
+    const btnM = document.createElement('button');
+    btnM.className = 'score-btn';
+    btnM.style.cssText = 'padding:8px 16px;font-size:1.3rem;background:#555;min-width:0;border-radius:6px;';
+    btnM.textContent = '−';
+    btnM.disabled = notRunning || count <= 0;
+    btnM.onclick = onMinus;
+    const num = document.createElement('span');
+    num.style.cssText = `font-family:var(--font-mono);font-size:2rem;font-weight:700;min-width:40px;text-align:center;color:${colour};`;
+    num.textContent = count;
+    const btnP = document.createElement('button');
+    btnP.className = 'score-btn';
+    btnP.style.cssText = 'padding:8px 16px;font-size:1.3rem;background:#555;min-width:0;border-radius:6px;';
+    btnP.textContent = '+';
+    btnP.disabled = notRunning;
+    btnP.onclick = onPlus;
+    controls.appendChild(btnM);
+    controls.appendChild(num);
+    controls.appendChild(btnP);
+    cell.appendChild(lbl);
+    cell.appendChild(controls);
+    return cell;
+  };
+
+  grid.appendChild(makeCell('Unharmed (Green)', '#4ade80', greenCount,
+    () => { scorer.adjustCount('green', -1); updateScorerUI(); },
+    () => { scorer.adjustCount('green', 1); updateScorerUI(); }
+  ));
+
+  grid.appendChild(makeCell('Harmed (Red)', '#f87171', redCount,
+    () => { scorer.adjustCount('red', -1); updateScorerUI(); },
+    () => { scorer.adjustCount('red', 1); updateScorerUI(); }
+  ));
+}
+
+// --- Scorer class ---
+class LiveScorer {
+  constructor() {
+    this.scored = new Map();
+    this.rescueKitsDeployed = new Set();
+    this.exitClaimed = false;
+    this.countUnharmedClaimed = false;
+    this.countHarmedClaimed = false;
+    this.countUnharmedReported = null;
+    this.countHarmedReported = null;
+    this.countAdjust = { green: 0, red: 0 };
+    this.log = [];
+    this.history = [];
+  }
+
+  adjustCount(colour, delta) {
+    this.countAdjust[colour] = Math.max(0, this.countAdjust[colour] + delta);
+  }
+
+  scoreVictim(x, y, colour) {
+    const key = `${x},${y}`;
+    if (this.scored.has(key)) {
+      this._log('info', `Victim at (${x},${y}) already scored.`);
+      return false;
+    }
+    const d = div();
+    let pts = 0;
+    let label = '';
+    if (colour === 'green') { pts = d.scoring.greenVictim; label = 'Green (unharmed)'; }
+    else if (colour === 'red') { pts = d.scoring.redVictim; label = 'Red (harmed)'; }
+
+    this.scored.set(key, { colour, pts, x, y });
+    this.countAdjust[colour] = this._countScored(colour);
+    this.history.push({ action: 'victim', key, colour, pts });
+    this._log('ok', `${label} victim at (${x},${y}) +${pts} pts`);
+    return true;
+  }
+
+  unscoreVictim(x, y) {
+    const key = `${x},${y}`;
+    if (!this.scored.has(key)) return false;
+    const entry = this.scored.get(key);
+    this.rescueKitsDeployed.delete(key);
+    this.scored.delete(key);
+    this.countAdjust[entry.colour] = Math.max(0, this.countAdjust[entry.colour] - 1);
+    this.history.push({ action: 'unscore', key, colour: entry.colour, pts: entry.pts, x, y });
+    this._log('info', `Unscored victim at (${x},${y})`);
+    return true;
+  }
+
+  deployRescueKit(x, y) {
+    const key = `${x},${y}`;
+    if (!this.scored.has(key)) {
+      this._log('info', `Must identify victim at (${x},${y}) before deploying rescue kit.`);
+      return false;
+    }
+    if (this.scored.get(key).colour !== 'red') {
+      this._log('info', `Rescue kits are only for harmed (red) victims.`);
+      return false;
+    }
+    if (this.rescueKitsDeployed.has(key)) {
+      this._log('info', `Rescue kit already deployed at (${x},${y}).`);
+      return false;
+    }
+    const d = div();
+    const pts = d.scoring.rescueKit;
+    this.rescueKitsDeployed.add(key);
+    this.history.push({ action: 'rescue_kit', key, pts });
+    this._log('ok', `Rescue kit deployed at (${x},${y}) +${pts} pts`);
+    return true;
+  }
+
+  claimExit() {
+    if (this.exitClaimed) {
+      this._log('info', 'Exit already claimed.');
+      return false;
+    }
+    const d = div();
+    this.exitClaimed = true;
+    this.history.push({ action: 'exit', pts: d.scoring.exitBonus });
+    this._log('bonus', `Exit bonus +${d.scoring.exitBonus} pts`);
+    return true;
+  }
+
+  claimCount(type, reported) {
+    const d = div();
+    const totalVictims = countVictims();
+    const totalAll = (totalVictims.green || 0) + (totalVictims.red || 0);
+    const half = Math.floor(totalAll / 2);
+    const totalFound = this.scored.size;
+    if (totalFound < half) {
+      this._log('info', `Need at least ${half} victims found (have ${totalFound}).`);
+      return false;
+    }
+    if (type === 'unharmed') {
+      if (this.countUnharmedClaimed) { this._log('info', 'Unharmed count already claimed.'); return false; }
+      this.countUnharmedClaimed = true;
+      this.countUnharmedReported = reported;
+      this.history.push({ action: 'count_unharmed', pts: d.scoring.countBonusUnharmed, reported });
+      this._log('bonus', `Unharmed count bonus +${d.scoring.countBonusUnharmed} pts (reported: ${reported})`);
+      return true;
+    } else {
+      if (this.countHarmedClaimed) { this._log('info', 'Harmed count already claimed.'); return false; }
+      this.countHarmedClaimed = true;
+      this.countHarmedReported = reported;
+      this.history.push({ action: 'count_harmed', pts: d.scoring.countBonusHarmed, reported });
+      this._log('bonus', `Harmed count bonus +${d.scoring.countBonusHarmed} pts (reported: ${reported})`);
+      return true;
+    }
+  }
+
+  restart() {
+    this.scored.clear();
+    this.rescueKitsDeployed.clear();
+    this.exitClaimed = false;
+    this.countUnharmedClaimed = false;
+    this.countHarmedClaimed = false;
+    this.countUnharmedReported = null;
+    this.countHarmedReported = null;
+    this.countAdjust = { green: 0, red: 0 };
+    this.history = [];
+    this._log('info', 'RESTART — all scores reset, timer continues.');
+  }
+
+  undo() {
+    if (this.history.length === 0) return;
+    const last = this.history.pop();
+    if (last.action === 'victim') {
+      this.rescueKitsDeployed.delete(last.key);
+      this.scored.delete(last.key);
+      this._log('info', `Undid ${last.colour} victim at ${last.key}`);
+    } else if (last.action === 'unscore') {
+      this.scored.set(last.key, { colour: last.colour, pts: last.pts, x: last.x, y: last.y });
+      this._log('info', `Re-scored ${last.colour} victim at ${last.key}`);
+    } else if (last.action === 'rescue_kit') {
+      this.rescueKitsDeployed.delete(last.key);
+      this._log('info', `Undid rescue kit at ${last.key}`);
+    } else if (last.action === 'exit') {
+      this.exitClaimed = false;
+      this._log('info', 'Undid exit bonus');
+    } else if (last.action === 'count_unharmed') {
+      this.countUnharmedClaimed = false;
+      this.countUnharmedReported = null;
+      this._log('info', 'Undid unharmed count bonus');
+    } else if (last.action === 'count_harmed') {
+      this.countHarmedClaimed = false;
+      this.countHarmedReported = null;
+      this._log('info', 'Undid harmed count bonus');
+    }
+  }
+
+  _countScored(colour) {
+    let n = 0;
+    for (const v of this.scored.values()) if (v.colour === colour) n++;
+    return n;
+  }
+
+  totalPoints() {
+    const d = div();
+    let pts = 0;
+    for (const v of this.scored.values()) pts += v.pts;
+    if (d.hasRescueKits) pts += this.rescueKitsDeployed.size * d.scoring.rescueKit;
+    if (this.exitClaimed) pts += d.scoring.exitBonus;
+    if (this.countUnharmedClaimed) pts += d.scoring.countBonusUnharmed;
+    if (this.countHarmedClaimed) pts += d.scoring.countBonusHarmed;
+    return pts;
+  }
+
+  summary() {
+    const d = div();
+    const victims = countVictims();
+    const s = {
+      greenFound: this._countScored('green'),
+      greenTotal: victims.green || 0,
+      redFound: this._countScored('red'),
+      redTotal: victims.red || 0,
+      exit: this.exitClaimed,
+      countUnharmed: this.countUnharmedClaimed,
+      countHarmed: this.countHarmedClaimed,
+      total: this.totalPoints()
+    };
+    if (d.hasRescueKits) {
+      s.rescueKits = this.rescueKitsDeployed.size;
+      s.rescueKitsMax = victims.red || 0;
+    }
+    return s;
+  }
+
+  _log(type, msg) {
+    this.log.push({ type, msg, at: elapsedMs });
+  }
+}
+
+
+// --- Run controls ---
+function startRun() {
+  if (runState === 'running') return;
+  scorer = new LiveScorer();
+  elapsedMs = 0;
+  runState = 'running';
+  const startTime = Date.now();
+
+  runTimer = setInterval(() => {
+    elapsedMs = Date.now() - startTime;
+    const d = div();
+    if (elapsedMs >= d.timeLimitMs) {
+      elapsedMs = d.timeLimitMs;
+      stopRun();
+      return;
+    }
+    updateTimerDisplay();
+  }, 200);
+
+  document.getElementById('btnStartRun').disabled = true;
+  document.getElementById('btnStopRun').disabled = false;
+  updateScorerUI();
+  renderMaze();
+}
+
+function stopRun() {
+  if (runState !== 'running') return;
+  runState = 'stopped';
+  clearInterval(runTimer);
+  runTimer = null;
+  document.getElementById('btnStartRun').disabled = true;
+  document.getElementById('btnStopRun').disabled = true;
+  updateScorerUI();
+}
+
+function resetRun() {
+  runState = 'idle';
+  clearInterval(runTimer);
+  runTimer = null;
+  elapsedMs = 0;
+  scorer = null;
+  document.getElementById('btnStartRun').disabled = false;
+  document.getElementById('btnStopRun').disabled = true;
+  document.getElementById('timerDisplay').textContent = '0:00';
+  document.getElementById('timerDisplay').className = 'timer-display';
+  document.getElementById('totalPts').textContent = '0';
+  document.getElementById('scoreLog').innerHTML = '';
+  document.getElementById('scoreSummary').innerHTML = '';
+  renderMaze();
+}
+
+function updateTimerDisplay() {
+  const d = div();
+  const remaining = Math.max(0, d.timeLimitMs - elapsedMs);
+  const secs = Math.ceil(remaining / 1000);
+  const min = Math.floor(secs / 60);
+  const sec = secs % 60;
+  const display = document.getElementById('timerDisplay');
+  display.textContent = `${min}:${sec.toString().padStart(2, '0')}`;
+  display.className = 'timer-display';
+  if (secs <= 30) display.classList.add('danger');
+  else if (secs <= 60) display.classList.add('warning');
+}
+
+function updateScorerUI() {
+  if (!scorer) return;
+  document.getElementById('totalPts').textContent = scorer.totalPoints();
+  updateTimerDisplay();
+
+  // Summary table
+  const s = scorer.summary();
+  const d = div();
+  let html = '<table>';
+  html += `<tr><td>Green victims</td><td>${s.greenFound} / ${s.greenTotal}</td></tr>`;
+  html += `<tr><td>Red victims</td><td>${s.redFound} / ${s.redTotal}</td></tr>`;
+  if (d.hasRescueKits) {
+    html += `<tr><td>Rescue kits</td><td>${s.rescueKits} / ${s.rescueKitsMax}</td></tr>`;
+  }
+  html += `<tr><td>Exit bonus</td><td>${s.exit ? 'Yes (+25)' : 'No'}</td></tr>`;
+  if (d.hasCountBonus) {
+    html += `<tr><td>Count (unharmed)</td><td>${s.countUnharmed ? 'Yes (+25)' : 'No'}</td></tr>`;
+    html += `<tr><td>Count (harmed)</td><td>${s.countHarmed ? 'Yes (+25)' : 'No'}</td></tr>`;
+  }
+  html += `<tr class="total-row"><td>Total</td><td>${s.total} pts</td></tr>`;
+  html += '</table>';
+  document.getElementById('scoreSummary').innerHTML = html;
+
+  // Log
+  const logEl = document.getElementById('scoreLog');
+  logEl.innerHTML = '';
+  for (const entry of scorer.log) {
+    const div2 = document.createElement('div');
+    div2.className = `log-entry ${entry.type}`;
+    const secs = (entry.at / 1000).toFixed(1);
+    div2.innerHTML = `<span>${entry.msg}</span><span class="log-time">${secs}s</span>`;
+    logEl.appendChild(div2);
+  }
+  logEl.scrollTop = logEl.scrollHeight;
+
+  // Update victim count +/- UI
+  updateVictimCounts();
+
+  // Disable bonus/misc buttons
+  const notRunning = runState !== 'running';
+  if (document.getElementById('btnExit'))
+    document.getElementById('btnExit').disabled = notRunning || scorer.exitClaimed;
+  if (document.getElementById('btnCountUnharmed'))
+    document.getElementById('btnCountUnharmed').disabled = notRunning || scorer.countUnharmedClaimed;
+  if (document.getElementById('btnCountHarmed'))
+    document.getElementById('btnCountHarmed').disabled = notRunning || scorer.countHarmedClaimed;
+  if (document.getElementById('btnUndo'))
+    document.getElementById('btnUndo').disabled = notRunning || scorer.history.length === 0;
+  if (document.getElementById('btnRestart'))
+    document.getElementById('btnRestart').disabled = notRunning;
+}
+
+// --- Mode switching ---
+function switchMode(mode) {
+  currentMode = mode;
+  document.getElementById('tabDesign').classList.toggle('active', mode === 'design');
+  document.getElementById('tabScore').classList.toggle('active', mode === 'score');
+  document.getElementById('designPanel').classList.toggle('hidden', mode !== 'design');
+  document.getElementById('scorePanel').classList.toggle('hidden', mode !== 'score');
+
+  if (mode === 'score') {
+    buildScorerButtons();
+    resetRun();
+  }
+  renderMaze();
+}
+
+// --- Division switching ---
+document.getElementById('divisionSel').addEventListener('change', (e) => {
+  currentDivision = e.target.value;
+  const d = div();
+  initMaze(d.defaultGridW, d.defaultGridH);
+  document.getElementById('gridW').value = d.defaultGridW;
+  document.getElementById('gridH').value = d.defaultGridH;
+  buildTileTools();
+  if (currentMode === 'score') {
+    buildScorerButtons();
+    resetRun();
+  }
+  renderMaze();
+});
+
+// --- Design actions ---
+function resizeGrid() {
+  const w = parseInt(document.getElementById('gridW').value) || 6;
+  const h = parseInt(document.getElementById('gridH').value) || 6;
+  initMaze(Math.max(2, Math.min(12, w)), Math.max(2, Math.min(12, h)));
+  renderMaze();
+}
+
+function clearInterior() {
+  const d = div();
+  for (let y = 0; y < gridH; y++)
+    for (let x = 0; x < gridW; x++)
+      if (tiles[y][x] !== d.tileTypes.START) tiles[y][x] = d.tileTypes.EMPTY;
+  for (let y = 1; y < gridH; y++)
+    for (let x = 0; x < gridW; x++) wallsH[y][x] = false;
+  for (let y = 0; y < gridH; y++)
+    for (let x = 1; x < gridW; x++) wallsV[y][x] = false;
+  renderMaze();
+}
+
+function resetMaze() {
+  const d = div();
+  initMaze(gridW, gridH);
+  renderMaze();
+}
+
+function updateDesignInfo() {
+  const victims = countVictims();
+  const d = div();
+  let info = `Grid: ${gridW}x${gridH} | Tile: ${d.tileMM}mm`;
+  info += ` | Green: ${victims.green} | Red: ${victims.red}`;
+
+  let maxScore = victims.green * d.scoring.greenVictim + victims.red * d.scoring.redVictim;
+  if (d.hasRescueKits) maxScore += victims.red * d.scoring.rescueKit;
+  if (d.hasExitBonus) maxScore += d.scoring.exitBonus;
+  if (d.hasCountBonus) maxScore += d.scoring.countBonusUnharmed + d.scoring.countBonusHarmed;
+  info += ` | Max: ${maxScore} pts`;
+
+  document.getElementById('designInfo').textContent = info;
+  document.getElementById('mazeInfo').textContent = `${d.name} | ${gridW}x${gridH} (${d.tileMM}mm tiles) | Time: ${d.timeLimitMs / 1000}s`;
+}
+
+// --- Export / Import ---
+function exportMaze() {
+  const data = {
+    version: 1,
+    division: currentDivision,
+    gridW, gridH,
+    tiles: tiles.map(r => [...r]),
+    wallsH: wallsH.map(r => [...r]),
+    wallsV: wallsV.map(r => [...r])
+  };
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `maze-${currentDivision}-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importMaze(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!data.gridW || !data.gridH || !data.tiles || !data.wallsH || !data.wallsV) {
+        alert('Invalid maze file.');
+        return;
+      }
+      if (data.division && DIVISIONS[data.division]) {
+        currentDivision = data.division;
+        document.getElementById('divisionSel').value = data.division;
+        buildTileTools();
+      }
+      gridW = data.gridW;
+      gridH = data.gridH;
+      tiles = data.tiles;
+      wallsH = data.wallsH;
+      wallsV = data.wallsV;
+      document.getElementById('gridW').value = gridW;
+      document.getElementById('gridH').value = gridH;
+      renderMaze();
+    } catch (err) {
+      alert('Failed to parse maze file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// --- Init ---
+function init() {
+  const d = div();
+  initMaze(d.defaultGridW, d.defaultGridH);
+  buildTileTools();
+  renderMaze();
+}
+
+init();
+</script>
+</body>
+</html>
