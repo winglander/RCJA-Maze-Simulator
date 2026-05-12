@@ -332,8 +332,10 @@ header h1 em { color: var(--accent); font-style: normal; }
   font-size: 0.8rem;
 }
 .score-summary table { width: 100%; border-collapse: collapse; }
-.score-summary td { padding: 3px 6px; }
-.score-summary td:last-child { text-align: right; font-weight: 600; }
+.score-summary td, .score-summary th { padding: 3px 6px; }
+.score-summary th { text-align: right; font-weight: 400; color: var(--text-dim); font-size: 0.7rem; }
+.score-summary td:nth-child(2) { text-align: right; font-weight: 600; }
+.score-summary td:nth-child(3) { text-align: right; color: var(--text-dim); }
 .score-summary tr.total-row td {
   border-top: 2px solid var(--accent);
   padding-top: 6px;
@@ -1239,18 +1241,30 @@ function updateScorerUI() {
   // Summary table
   const s = scorer.summary();
   const d = div();
+  const greenPts = s.greenFound * d.scoring.greenVictim;
+  const greenMax = s.greenTotal * d.scoring.greenVictim;
+  const redPts = s.redFound * d.scoring.redVictim;
+  const redMax = s.redTotal * d.scoring.redVictim;
+  let maxTotal = greenMax + redMax;
+  if (d.hasRescueKits) maxTotal += s.rescueKitsMax * d.scoring.rescueKit;
+  if (d.hasExitBonus) maxTotal += d.scoring.exitBonus;
+  if (d.hasCountBonus) maxTotal += d.scoring.countBonusUnharmed + d.scoring.countBonusHarmed;
+
   let html = '<table>';
-  html += `<tr><td>Green victims</td><td>${s.greenFound} / ${s.greenTotal}</td></tr>`;
-  html += `<tr><td>Red victims</td><td>${s.redFound} / ${s.redTotal}</td></tr>`;
+  html += `<tr><th></th><th>Score</th><th>Max</th></tr>`;
+  html += `<tr><td>Green (${s.greenFound}/${s.greenTotal})</td><td>${greenPts}</td><td>${greenMax}</td></tr>`;
+  html += `<tr><td>Red (${s.redFound}/${s.redTotal})</td><td>${redPts}</td><td>${redMax}</td></tr>`;
   if (d.hasRescueKits) {
-    html += `<tr><td>Rescue kits</td><td>${s.rescueKits} / ${s.rescueKitsMax}</td></tr>`;
+    const rkPts = s.rescueKits * d.scoring.rescueKit;
+    const rkMax = s.rescueKitsMax * d.scoring.rescueKit;
+    html += `<tr><td>Rescue kits (${s.rescueKits}/${s.rescueKitsMax})</td><td>${rkPts}</td><td>${rkMax}</td></tr>`;
   }
-  html += `<tr><td>Exit bonus</td><td>${s.exit ? 'Yes (+25)' : 'No'}</td></tr>`;
+  html += `<tr><td>Exit bonus</td><td>${s.exit ? d.scoring.exitBonus : 0}</td><td>${d.scoring.exitBonus}</td></tr>`;
   if (d.hasCountBonus) {
-    html += `<tr><td>Count (unharmed)</td><td>${s.countUnharmed ? 'Yes (+25)' : 'No'}</td></tr>`;
-    html += `<tr><td>Count (harmed)</td><td>${s.countHarmed ? 'Yes (+25)' : 'No'}</td></tr>`;
+    html += `<tr><td>Count (unharmed)</td><td>${s.countUnharmed ? d.scoring.countBonusUnharmed : 0}</td><td>${d.scoring.countBonusUnharmed}</td></tr>`;
+    html += `<tr><td>Count (harmed)</td><td>${s.countHarmed ? d.scoring.countBonusHarmed : 0}</td><td>${d.scoring.countBonusHarmed}</td></tr>`;
   }
-  html += `<tr class="total-row"><td>Total</td><td>${s.total} pts</td></tr>`;
+  html += `<tr class="total-row"><td>Total</td><td>${s.total}</td><td>${maxTotal}</td></tr>`;
   html += '</table>';
   document.getElementById('scoreSummary').innerHTML = html;
 
