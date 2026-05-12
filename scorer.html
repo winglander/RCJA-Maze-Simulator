@@ -398,15 +398,9 @@ header h1 em { color: var(--accent); font-style: normal; }
     </div>
 
     <div class="tool-group">
-      <h3>Start Tile</h3>
-      <button class="tool-btn start-btn" onclick="placeStart()">Place Start Tile</button>
-      <p style="font-size:0.7rem;color:var(--text-dim);margin-top:6px;">Click, then click a tile to place the start position.</p>
-    </div>
-
-    <div class="tool-group">
       <h3>Actions</h3>
       <div class="action-row">
-        <button class="action-btn" onclick="clearInterior()">Clear Interior</button>
+        <button class="action-btn start-btn" onclick="placeStart()">Place Start Tile</button>
         <button class="action-btn" onclick="resetMaze()">Reset Maze</button>
       </div>
       <div class="action-row" style="margin-top:6px;">
@@ -1330,18 +1324,6 @@ function resizeGrid() {
 function placeStart() {
   pendingStart = true;
   document.querySelector('.tool-group .start-btn')?.classList.add('active');
-}
-
-function clearInterior() {
-  const d = div();
-  for (let y = 0; y < gridH; y++)
-    for (let x = 0; x < gridW; x++)
-      if (tiles[y][x] !== d.tileTypes.START) tiles[y][x] = d.tileTypes.EMPTY;
-  for (let y = 1; y < gridH; y++)
-    for (let x = 0; x < gridW; x++) wallsH[y][x] = false;
-  for (let y = 0; y < gridH; y++)
-    for (let x = 1; x < gridW; x++) wallsV[y][x] = false;
-  renderMaze();
 }
 
 function resetMaze() {
