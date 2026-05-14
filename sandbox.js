@@ -961,7 +961,7 @@ function compileStudentCode(src, api) {
    ============================================================= */
 
 const STARTER_CODE = `// =================================================================
-// Mighty Maisy starter sketch  —  Year 11 Software Engineering
+// Mighty Maisy starter sketch  —  RCJA Rescue Maze 2026
 // =================================================================
 // Two functions are called by the simulator:
 //   setup()  — runs ONCE when you press Run
@@ -1068,6 +1068,11 @@ class App {
     this.timerEl = document.getElementById('timer');
     this.scorePanel = document.getElementById('scorePanel');
     this.codeEditor = document.getElementById('codeEditor');
+    this.blocklyContainer = document.getElementById('blocklyContainer');
+    this.editorColHeader = document.getElementById('editorColHeader');
+    this.editorTabHint = document.getElementById('editorTabHint');
+    this.editorMode = 'code'; // 'code' | 'blocks'
+    this.blocklyWorkspace = null;
     this.sensorPanel = document.getElementById('sensorPanel');
 
     // Pose sidebar
@@ -1116,16 +1121,17 @@ class App {
     this.lastSensors = null;
     this.lastTickReal = 0;
     this.simSpeed = 1.0;
-    this.activeTool = 'wall';
+    this.pendingStart = false;
     this._prevScores = { green: 0, red: 0, exit: false, count: 0 };
 
     this.placeStartingPose();
     this.loadStarter();
     this.bindUI();
     this.initGettingStarted();
+    this.initBlockly();
     this.render();
-    this.updateLiveScore(); // populate totals before any run
-    this.updateStatusBar(); // show IDLE state
+    this.updateLiveScore();
+    this.updateStatusBar();
   }
 
   // Show / hide the Getting Started callout above the maze.
@@ -1149,6 +1155,64 @@ class App {
     });
   }
 
+  initBlockly() {
+    this.blocklyWorkspace = Blockly.inject('blocklyDiv', {
+      toolbox: MAISY_TOOLBOX,
+      grid: { spacing: 25, length: 3, colour: '#ccc', snap: true },
+      zoom: { controls: true, wheel: true, startScale: 0.9, maxScale: 2, minScale: 0.4, scaleSpeed: 1.1 },
+      trashcan: true,
+      move: { scrollbars: true, drag: true, wheel: true },
+      renderer: 'zelos'
+    });
+
+    Blockly.Xml.domToWorkspace(
+      Blockly.utils.xml.textToDom(STARTER_BLOCKS_XML),
+      this.blocklyWorkspace
+    );
+
+    // Editor tab switching
+    const tabs = document.querySelectorAll('.editor-tab');
+    for (const tab of tabs) {
+      tab.addEventListener('click', () => {
+        this.switchEditorMode(tab.dataset.mode);
+        tabs.forEach(t => t.classList.toggle('active', t === tab));
+      });
+    }
+  }
+
+  switchEditorMode(mode) {
+    if (mode === this.editorMode) return;
+    this.editorMode = mode;
+
+    const docsScroll = document.querySelector('.docs-scroll');
+    if (mode === 'blocks') {
+      this.codeEditor.classList.add('hidden');
+      this.blocklyContainer.classList.remove('hidden');
+      this.editorColHeader.textContent = 'Blocks';
+      this.editorTabHint.textContent = 'Generated code runs when you press Run';
+      document.getElementById('codeIoBtns').classList.add('hidden');
+      document.getElementById('blocksIoBtns').classList.remove('hidden');
+      docsScroll.classList.add('mode-blocks');
+      // Blockly needs a resize after becoming visible
+      requestAnimationFrame(() => Blockly.svgResize(this.blocklyWorkspace));
+    } else {
+      this.blocklyContainer.classList.add('hidden');
+      this.codeEditor.classList.remove('hidden');
+      this.editorColHeader.textContent = 'Code';
+      this.editorTabHint.textContent = '';
+      document.getElementById('blocksIoBtns').classList.add('hidden');
+      document.getElementById('codeIoBtns').classList.remove('hidden');
+      docsScroll.classList.remove('mode-blocks');
+    }
+  }
+
+  getActiveCode() {
+    if (this.editorMode === 'blocks') {
+      return MaisyGenerator.workspaceToCode(this.blocklyWorkspace);
+    }
+    return this.codeEditor.value;
+  }
+
   loadStarter() {
     this.codeEditor.value = STARTER_CODE;
   }
@@ -1164,19 +1228,16 @@ class App {
   }
 
   bindUI() {
-    // ---- Toolbar buttons (paint tools)
-    const toolButtons = document.querySelectorAll('[data-tool]');
-    for (const btn of toolButtons) {
-      btn.addEventListener('click', () => {
-        this.activeTool = btn.dataset.tool;
-        toolButtons.forEach(b => b.classList.toggle('active', b === btn));
-        this.updateStatusBar();
-      });
-    }
+    // ---- Place Start button (toggle mode)
+    const placeStartBtn = document.getElementById('btnPlaceStart');
+    placeStartBtn.addEventListener('click', () => {
+      this.pendingStart = !this.pendingStart;
+      placeStartBtn.classList.toggle('active', this.pendingStart);
+    });
 
-    // ---- SVG click for paint
+    // ---- SVG click: auto-detect edge (wall toggle) vs centre (tile cycle)
     this.svg.addEventListener('click', (e) => {
-      if (this.runState === 'running') return;
+      if (this.runState !== 'idle') return;        // protect maze during run
       const w = this.renderer.clientToWorld(e.clientX, e.clientY);
       if (!w) return;
       this.handleMazeClick(w.x, w.y);
@@ -1201,6 +1262,30 @@ class App {
     importFileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) this.importMazeJSON(file);
+      e.target.value = '';
+    });
+
+    // ---- Code import / export
+    document.getElementById('btnExportCode').addEventListener('click', () => this.exportCode());
+    const importCodeInput = document.getElementById('importCodeFile');
+    document.getElementById('btnImportCode').addEventListener('click', () => {
+      importCodeInput.click();
+    });
+    importCodeInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) this.importCode(file);
+      e.target.value = '';
+    });
+
+    // ---- Blocks import / export
+    document.getElementById('btnExportBlocks').addEventListener('click', () => this.exportBlocks());
+    const importBlocksInput = document.getElementById('importBlocksFile');
+    document.getElementById('btnImportBlocks').addEventListener('click', () => {
+      importBlocksInput.click();
+    });
+    importBlocksInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) this.importBlocks(file);
       e.target.value = '';
     });
 
@@ -1247,29 +1332,34 @@ class App {
   }
 
   handleMazeClick(xMM, yMM) {
-    const tool = this.activeTool;
-    if (tool === 'wall') {
-      // Pick the nearest tile edge and toggle that wall
-      const tx = Math.floor(xMM / TILE_MM);
-      const ty = Math.floor(yMM / TILE_MM);
-      const lx = xMM - tx * TILE_MM;
-      const ly = yMM - ty * TILE_MM;
-      // Distance to each of 4 edges
-      const dTop = ly, dBot = TILE_MM - ly, dLeft = lx, dRight = TILE_MM - lx;
-      const minD = Math.min(dTop, dBot, dLeft, dRight);
+    const EDGE_ZONE = 0.25;
+    const tx = Math.floor(xMM / TILE_MM);
+    const ty = Math.floor(yMM / TILE_MM);
+    if (tx < 0 || tx >= GRID_W || ty < 0 || ty >= GRID_H) return;
+    const lx = xMM - tx * TILE_MM;
+    const ly = yMM - ty * TILE_MM;
+    const dTop = ly, dBot = TILE_MM - ly, dLeft = lx, dRight = TILE_MM - lx;
+    const minD = Math.min(dTop, dBot, dLeft, dRight);
+
+    if (this.pendingStart) {
+      // Place Start tile mode
+      this.world.setTile(tx, ty, TILE_TYPES.START);
+      this.pendingStart = false;
+      document.getElementById('btnPlaceStart').classList.remove('active');
+    } else if (minD < TILE_MM * EDGE_ZONE) {
+      // Click near edge → toggle wall
       if (minD === dTop)        this.world.toggleWall('h', tx, ty);
       else if (minD === dBot)   this.world.toggleWall('h', tx, ty + 1);
       else if (minD === dLeft)  this.world.toggleWall('v', tx, ty);
       else                      this.world.toggleWall('v', tx + 1, ty);
     } else {
-      // tile-fill tools: empty / start / black / red / green
-      const tx = Math.floor(xMM / TILE_MM);
-      const ty = Math.floor(yMM / TILE_MM);
-      const map = {
-        empty: TILE_TYPES.EMPTY, start: TILE_TYPES.START,
-        black: TILE_TYPES.BLACK, red: TILE_TYPES.RED, green: TILE_TYPES.GREEN
-      };
-      if (tool in map) this.world.setTile(tx, ty, map[tool]);
+      // Click centre → cycle tile type (Empty → Green → Red → Black → Empty)
+      const tileOrder = [TILE_TYPES.EMPTY, TILE_TYPES.GREEN, TILE_TYPES.RED, TILE_TYPES.BLACK];
+      const cur = this.world.grid[ty][tx];
+      if (cur === TILE_TYPES.START) return; // don't cycle Start tiles
+      const idx = tileOrder.indexOf(cur);
+      const next = tileOrder[(idx + 1) % tileOrder.length];
+      this.world.setTile(tx, ty, next);
     }
     this.placeStartingPose(); // start tile may have moved
     this.render();
@@ -1498,6 +1588,67 @@ class App {
     return null;
   }
 
+  // ---- Code import / export ----
+
+  exportCode() {
+    const code = this.codeEditor.value;
+    const blob = new Blob([code], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `maisy-code-${ts}.ino`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    this.serialInfo(`Code exported as maisy-code-${ts}.ino`);
+  }
+
+  importCode(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.codeEditor.value = reader.result;
+      this.serialInfo(`Code imported from ${file.name}`);
+    };
+    reader.onerror = () => this.serialErr(`Could not read file: ${reader.error}`);
+    reader.readAsText(file);
+  }
+
+  // ---- Blocks import / export ----
+
+  exportBlocks() {
+    const xml = Blockly.Xml.workspaceToDom(this.blocklyWorkspace);
+    const xmlText = Blockly.Xml.domToText(xml);
+    const blob = new Blob([xmlText], { type: 'text/xml' });
+    const url = URL.createObjectURL(blob);
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `maisy-blocks-${ts}.xml`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    this.serialInfo(`Blocks exported as maisy-blocks-${ts}.xml`);
+  }
+
+  importBlocks(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const dom = Blockly.utils.xml.textToDom(reader.result);
+        this.blocklyWorkspace.clear();
+        Blockly.Xml.domToWorkspace(dom, this.blocklyWorkspace);
+        this.serialInfo(`Blocks imported from ${file.name}`);
+      } catch (err) {
+        this.serialErr(`Could not parse blocks XML: ${err.message}`);
+      }
+    };
+    reader.onerror = () => this.serialErr(`Could not read file: ${reader.error}`);
+    reader.readAsText(file);
+  }
+
   // Reset RUN state — clear scores, clock, robot position. Maze and code untouched.
   // Available when state is idle or finished. During running, must Stop first.
   resetRun() {
@@ -1657,7 +1808,7 @@ class App {
     const api = buildRobotAPI(this.robot, this.world, walls, this.runtime);
 
     try {
-      this.compiled = compileStudentCode(this.codeEditor.value, api);
+      this.compiled = compileStudentCode(this.getActiveCode(), api);
     } catch (e) {
       this.serialErr(`Compile error: ${e.message}`);
       return;
@@ -1918,7 +2069,7 @@ class App {
     this.timerEl.classList.toggle('danger', remaining < 10000);
 
     const stateLabel = {
-      idle: 'IDLE — paint a maze, then press Run',
+      idle: 'IDLE — design a maze, then press Run',
       running: 'RUNNING',
       'paused-lop': 'PAUSED — Lack of progress',
       finished: 'FINISHED — see debrief below'
@@ -1928,8 +2079,11 @@ class App {
                     : this.runState === 'finished' ? 'info' : '';
     this.statusEl.innerHTML = `
       <span class="status-pill ${pillClass}">${stateLabel}</span>
-      <span class="status-pill">Tool: ${this.activeTool}</span>
     `;
+
+    // Lock / unlock design toolbar when not idle
+    const toolbar = document.getElementById('mazeToolbar');
+    toolbar.classList.toggle('locked', this.runState !== 'idle');
 
     // Button enabled states
     const isRunning = this.runState === 'running';
@@ -2072,4 +2226,4 @@ class App {
 }
 
 // ---- Bootstrap ----
-window.addEventListener('DOMContentLoaded', () => { new App(); });
+window.addEventListener('DOMContentLoaded', () => { window.app = new App(); });

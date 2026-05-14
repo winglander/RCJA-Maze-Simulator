@@ -3,25 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mighty Maisy Sandbox — Continuous-mm Rescue Maze Simulator</title>
-<meta name="description" content="Year 11 Software Engineering — continuous-mm rescue maze simulator with noisy sensors that mirror an Arduino Mega + VL53L1X + TCS34725 + TB6612FNG build.">
+<title>RCJA Rescue Maze — Mighty Maisy 2026 Simulator</title>
+<meta name="description" content="RCJA Rescue Maze simulator with noisy sensors that mirror an Arduino Mega + VL53L1X + TCS34725 + TB6612FNG build.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=JetBrains+Mono:wght@400;500;700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="sandbox.css">
+<script src="https://unpkg.com/blockly/blockly_compressed.js"></script>
+<script src="https://unpkg.com/blockly/blocks_compressed.js"></script>
+<script src="https://unpkg.com/blockly/msg/en.js"></script>
 </head>
 <body>
 <div class="container">
 
   <header class="hero">
     <div class="meta-row">
-      <span><span class="tag">11SE</span> &nbsp; Mighty Maisy Sandbox <span class="tag v2">v2 · continuous mm</span></span>
-      <span>RCJA Rescue Maze 2026 · Mighty Maisy division</span>
+      <span>Mighty Maisy division</span>
     </div>
-    <h1>Robot programming sandbox <em>— with noisy sensors</em></h1>
+    <h1>RCJA Rescue Maze <em>— Mighty Maisy 2026 Simulator</em></h1>
     <p class="lede">
-      A continuous-mm rescue maze simulator. The robot lives in millimetre space,
-      sees the world through three VL53L1X-style ToF sensors and a TCS34725-style colour sensor,
+      The robot sees the world through three VL53L1X-style ToF sensors and a TCS34725-style colour sensor,
       and is driven by a TB6612FNG-style signed-PWM motor pair. Same shape as your Arduino Mega build —
       same code structure, same noisy reality.
     </p>
@@ -33,14 +34,10 @@
   </div>
 
   <!-- ===== Toolbar ===== -->
-  <div class="toolbar">
-    <span class="toolbar-label">Paint</span>
-    <button class="tool-btn active" data-tool="wall">Wall</button>
-    <button class="tool-btn" data-tool="empty"><span class="dot e"></span>Empty</button>
-    <button class="tool-btn" data-tool="start"><span class="dot s"></span>Start</button>
-    <button class="tool-btn" data-tool="black"><span class="dot k"></span>Black</button>
-    <button class="tool-btn" data-tool="red"><span class="dot r"></span>Red victim</button>
-    <button class="tool-btn" data-tool="green"><span class="dot g"></span>Green victim</button>
+  <div class="toolbar" id="mazeToolbar">
+    <span class="toolbar-label">Design</span>
+    <span class="toolbar-hint">Click tile centre to cycle type &middot; Click tile edge to toggle wall</span>
+    <button class="tool-btn" id="btnPlaceStart" title="Click a tile to place the Start position (only one allowed)"><span class="dot s"></span>Place Start</button>
     <span class="toolbar-spacer"></span>
     <button class="tool-btn" id="btnClearMaze" title="Clear interior walls + tiles, keep perimeter and start">Clear interior</button>
     <button class="tool-btn" id="btnResetMaze" title="Wipe maze back to default 6×6 perimeter">Reset maze</button>
@@ -194,7 +191,7 @@
           <button class="gs-dismiss" id="gsDismiss" aria-label="Dismiss this guide" title="Dismiss (won't show again)">×</button>
           <div class="gs-title">Getting started</div>
           <ol class="gs-steps">
-            <li><strong>Load a maze.</strong> Click <em>Test maze</em> in the toolbar above, paint your own with the brushes, or import a JSON file.</li>
+            <li><strong>Load a maze.</strong> Click <em>Test maze</em> in the toolbar above, click tiles to cycle types and edges to toggle walls, or import a JSON file.</li>
             <li><strong>Try the starter code.</strong> Already loaded in the editor below — read the comments to see what each part does.</li>
             <li><strong>Press Run.</strong> Watch the robot. The API guide on the right of the editor explains every sensor and motor call.</li>
           </ol>
@@ -252,11 +249,29 @@
        ZONE 2: CODE EDITOR (60%) + API GUIDE (40%)
        ============================================================ -->
   <div class="code-zone">
+    <div class="editor-tabs">
+      <button class="editor-tab active" data-mode="code">Code</button>
+      <button class="editor-tab" data-mode="blocks">Blocks</button>
+      <span class="editor-io" id="codeIoBtns">
+        <button class="tool-btn" id="btnExportCode" title="Download code as an .ino file">Export .ino</button>
+        <button class="tool-btn" id="btnImportCode" title="Load code from an .ino file">Import .ino</button>
+        <input type="file" id="importCodeFile" accept=".ino,.js,.txt" style="display: none;">
+      </span>
+      <span class="editor-io hidden" id="blocksIoBtns">
+        <button class="tool-btn" id="btnExportBlocks" title="Download blocks as an .xml file">Export .xml</button>
+        <button class="tool-btn" id="btnImportBlocks" title="Load blocks from an .xml file">Import .xml</button>
+        <input type="file" id="importBlocksFile" accept=".xml,text/xml" style="display: none;">
+      </span>
+      <span class="editor-tab-hint" id="editorTabHint"></span>
+    </div>
     <div class="code-grid">
 
       <div class="editor-col">
-        <div class="col-header">Code</div>
+        <div class="col-header" id="editorColHeader">Code</div>
         <textarea class="code-editor" id="codeEditor" spellcheck="false"></textarea>
+        <div class="blockly-container hidden" id="blocklyContainer">
+          <div id="blocklyDiv"></div>
+        </div>
       </div>
 
       <aside class="docs-col">
@@ -265,7 +280,7 @@
 
           <details open>
             <summary>setup() and loop()</summary>
-            <div class="doc-body">
+            <div class="doc-body doc-code">
               <p>Define two functions. The simulator calls them like an Arduino sketch:</p>
               <pre>function setup() {
   // Runs ONCE
@@ -275,21 +290,33 @@ function loop() {
 }</pre>
               <p>Variables and helpers declared outside these functions are shared.</p>
             </div>
+            <div class="doc-body doc-blocks">
+              <p>Drag these two hat blocks from the <strong>Setup</strong> category:</p>
+              <div class="block-ref cat-setup">when program starts <span class="block-desc">&mdash; runs once at the beginning</span></div>
+              <div class="block-ref cat-setup">forever loop <span class="block-desc">&mdash; runs ~50&times; per second</span></div>
+              <p>Variables set inside <em>when program starts</em> are visible in <em>forever loop</em>.</p>
+            </div>
           </details>
 
           <details>
             <summary>ToF distance sensors</summary>
-            <div class="doc-body">
+            <div class="doc-body doc-code">
               <pre>frontToF.read()  // mm or -1
 leftToF.read()
 rightToF.read()</pre>
               <p>Range up to ~1200 mm. Noisy: ±8 mm plus 1% of distance, occasional dropouts to <code>-1</code>. Always check for <code>-1</code>.</p>
             </div>
+            <div class="doc-body doc-blocks">
+              <p>In the <strong>Sensors</strong> category:</p>
+              <div class="block-ref cat-sensor">front &#9662; distance (mm)</div>
+              <p>The dropdown picks <em>front</em>, <em>left</em>, or <em>right</em>. Returns mm (or &minus;1 on dropout).</p>
+              <p>Range up to ~1200 mm. Noisy: &pm;8 mm plus 1% of distance. Always compare with <code>&gt; 0</code> to filter dropouts.</p>
+            </div>
           </details>
 
           <details>
             <summary>Colour sensor</summary>
-            <div class="doc-body">
+            <div class="doc-body doc-code">
               <pre>const c = colourSensor.read();
 // { r, g, b, c }  16-bit counts</pre>
               <p><strong>Mounted 60 mm forward of the robot's centre</strong> (visible on the maze as the small dot with a dashed ring). This means the sensor sees colour <em>before</em> the robot's centre arrives — when red appears, you've usually got more driving to do before you're properly over the victim. Footprint ~20 mm radius. Write a classifier to turn raw RGB into a colour name.</p>
@@ -297,32 +324,52 @@ rightToF.read()</pre>
                 <strong>⚠ Sim vs. real-hardware note.</strong> The simulator uses idealised colours — plain floor, silver, red, green, and black are well-separated and easy to distinguish. <strong>This is not the case on real hardware.</strong> Cardboard tile colour varies by batch, lighting changes between rooms, and the TCS34725's gain and integration time need calibration. When you port your code to the Mega + TCS34725, expect to recalibrate every threshold. A sample-and-tune-on-site routine is one of the first things you'll add to the real build.
               </p>
             </div>
+            <div class="doc-body doc-blocks">
+              <p>In the <strong>Sensors</strong> category:</p>
+              <div class="block-ref cat-sensor">colour sensor red &#9662; <span class="block-desc">&mdash; reads one channel at a time</span></div>
+              <p>Dropdown picks: <em>red</em>, <em>green</em>, <em>blue</em>, or <em>clear</em>. Returns raw 16-bit counts.</p>
+              <p><strong>Tip:</strong> Read <em>clear</em> to detect black (very low) or silver (very high). Compare <em>red</em> vs <em>green</em> to tell victims apart.</p>
+              <p><strong>Mounted 60 mm forward of the robot's centre.</strong> The sensor sees colour <em>before</em> the robot arrives over the tile.</p>
+            </div>
           </details>
 
           <details>
             <summary>Encoders</summary>
-            <div class="doc-body">
+            <div class="doc-body doc-code">
               <pre>leftEncoder.read()    // ticks
 rightEncoder.read()
 leftEncoder.write(0)  // reset</pre>
               <p>2000 ticks per output-shaft revolution. Slip ±1% per tick — dead-reckoning drifts over distance.</p>
             </div>
+            <div class="doc-body doc-blocks">
+              <p>In the <strong>Sensors</strong> category:</p>
+              <div class="block-ref cat-sensor">left &#9662; encoder ticks <span class="block-desc">&mdash; returns cumulative ticks</span></div>
+              <div class="block-ref cat-sensor">reset left &#9662; encoder to <span class="block-input">0</span> <span class="block-desc">&mdash; resets the counter</span></div>
+              <p>2000 ticks per wheel revolution. Useful for measuring distance driven or turn angle.</p>
+            </div>
           </details>
 
           <details>
             <summary>Motors</summary>
-            <div class="doc-body">
+            <div class="doc-body doc-code">
               <pre>leftMotor.drive(speed)  // -255..+255
 rightMotor.drive(speed)
 leftMotor.brake()
 leftMotor.standby()</pre>
               <p>Positive = forward. Top speed ~80 RPM (de-rated, matches real hardware). Crossing one tile takes ~1.2 s at full power.</p>
             </div>
+            <div class="doc-body doc-blocks">
+              <p>In the <strong>Motion</strong> category:</p>
+              <div class="block-ref cat-motion">left &#9662; motor drive <span class="block-input">150</span> <span class="block-desc">&mdash; single motor, &minus;255 to +255</span></div>
+              <div class="block-ref cat-motion">drive both motors L <span class="block-input">150</span> R <span class="block-input">150</span> <span class="block-desc">&mdash; set both at once</span></div>
+              <div class="block-ref cat-motion">stop both motors</div>
+              <p>Positive = forward. To turn: make one side faster than the other. <strong>L &gt; R = turn left.</strong></p>
+            </div>
           </details>
 
           <details>
             <summary>Buttons</summary>
-            <div class="doc-body">
+            <div class="doc-body doc-code">
               <pre>buttonA.pressed()    // returns true once per press
 buttonB.pressed()
 buttonC.pressed()</pre>
@@ -330,11 +377,17 @@ buttonC.pressed()</pre>
               <p>Edge-triggered: <code>pressed()</code> returns <code>true</code> the first time you call it after a press fires, then <code>false</code> until the next press. Calling it more than once per tick will only see <code>true</code> once.</p>
               <p>Presses can only fire at <strong>start</strong> (via the dropdown next to Run) or on <strong>Lack of Progress</strong> confirm (via the picker). Mid-run presses are not allowed by the rules.</p>
             </div>
+            <div class="doc-body doc-blocks">
+              <p>In the <strong>Sensors</strong> category:</p>
+              <div class="block-ref cat-sensor">button A &#9662; pressed? <span class="block-desc">&mdash; true once per press</span></div>
+              <p>Dropdown picks <em>A</em>, <em>B</em>, or <em>C</em>. Use in an <strong>if</strong> block to react to operator button presses.</p>
+              <p>Presses fire at <strong>start</strong> (dropdown next to Run) or on <strong>Lack of Progress</strong>. Mid-run presses are not allowed.</p>
+            </div>
           </details>
 
           <details>
             <summary>Indicating victims and exit</summary>
-            <div class="doc-body">
+            <div class="doc-body doc-code">
               <pre>indicate('victim_unharmed')      // green tile
 indicate('victim_harmed')        // red tile
 indicate('exit')                 // Start tile, fully contained
@@ -349,15 +402,29 @@ indicate('count_harmed', N)      // N = reds you've counted</pre>
               <p>RCJA A6.2 requires stopping for ≥1 s over the victim. The sim doesn't enforce that — your code should.</p>
               <p>The "Indications" row in the score panel shows the live count of valid indications (your indicate() calls that landed over a real victim, including duplicates). Match your reported N to those numbers.</p>
             </div>
+            <div class="doc-body doc-blocks">
+              <p>In the <strong>Actions</strong> category:</p>
+              <div class="block-ref cat-action">indicate green victim (unharmed) &#9662;</div>
+              <p>Dropdown picks: <em>green victim (unharmed)</em>, <em>red victim (harmed)</em>, or <em>exit</em>.</p>
+              <div class="block-ref cat-action">report count of unharmed (green) &#9662; as <span class="block-input">N</span></div>
+              <p>After finding &ge;half the victims, return to Start and report your tallies. N must match your actual valid indications.</p>
+              <p>RCJA A6.2 requires stopping for &ge;1 s over the victim. Use a <strong>wait</strong> block (1100 ms) after indicating.</p>
+            </div>
           </details>
 
           <details>
             <summary>Debug + timing</summary>
-            <div class="doc-body">
+            <div class="doc-body doc-code">
               <pre>Serial.println("hello")
 Serial.print(value)
 millis()    // sim time, ms
 delay(ms)   // pause loop()</pre>
+            </div>
+            <div class="doc-body doc-blocks">
+              <p>In the <strong>Actions</strong> and <strong>Timing</strong> categories:</p>
+              <div class="block-ref cat-action">print to serial <span class="block-input">"hello"</span> with &#9662; newline <span class="block-desc">&mdash; debug output below the editor</span></div>
+              <div class="block-ref cat-timing">wait <span class="block-input">1000</span> milliseconds <span class="block-desc">&mdash; pauses loop() (cooperative)</span></div>
+              <div class="block-ref cat-timing">time since start (ms) <span class="block-desc">&mdash; simulation clock in milliseconds</span></div>
             </div>
           </details>
 
@@ -399,11 +466,12 @@ delay(ms)   // pause loop()</pre>
   <div class="score-panel hidden" id="scorePanel"></div>
 
   <footer>
-    Year 11 Software Engineering · St George Christian School · 11SE Mighty Maisy unit · v2 continuous-mm
+    RCJA Rescue Maze · Mighty Maisy 2026 Simulator
   </footer>
 
 </div>
 
+<script src="blocks.js"></script>
 <script src="sandbox.js"></script>
 </body>
 </html>
