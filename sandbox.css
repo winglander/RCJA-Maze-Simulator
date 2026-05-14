@@ -155,6 +155,14 @@ code, code.mono {
 }
 .tool-btn .dot.e { background: var(--paper); border-color: var(--muted); }
 .tool-btn.active .dot { border-color: var(--paper); }
+.toolbar-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin-right: 4px;
+}
+.toolbar.locked .toolbar-hint,
+.toolbar.locked .toolbar-label { opacity: 0.4; }
+.toolbar.locked .tool-btn { opacity: 0.35; pointer-events: none; }
 .toolbar-spacer { flex-grow: 1; }
 
 /* ============================================================
@@ -712,6 +720,58 @@ code, code.mono {
   background: var(--paper);
   margin-bottom: 18px;
 }
+
+/* ----- Editor mode tabs (Code / Blocks) ----- */
+.editor-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--paper-warm);
+  border-bottom: 1px solid var(--ink);
+}
+.editor-tab {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 10px 20px;
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.editor-tab:hover { color: var(--ink); background: var(--paper); }
+.editor-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: var(--paper);
+}
+/* ----- Editor import/export button group ----- */
+.editor-io {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.editor-io.hidden { display: none; }
+.editor-io .tool-btn {
+  font-size: 10px;
+  padding: 4px 10px;
+  min-height: 0;
+}
+
+.editor-tab-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: 8px;
+  padding-right: 14px;
+  letter-spacing: 0.04em;
+}
+
 .code-grid {
   display: grid;
   grid-template-columns: 6fr 4fr;
@@ -757,6 +817,32 @@ code, code.mono {
   tab-size: 2;
 }
 .code-editor:focus { background: #1a1614; }
+.code-editor.hidden { display: none; }
+
+/* ----- Blockly workspace ----- */
+.blockly-container {
+  flex: 1;
+  min-height: 500px;
+  position: relative;
+}
+.blockly-container.hidden { display: none; }
+.blockly-container #blocklyDiv {
+  position: absolute;
+  inset: 0;
+}
+.blockly-generated-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 12px 14px;
+  background: var(--ink);
+  color: var(--paper);
+  border-top: 1px solid var(--muted);
+  max-height: 180px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  opacity: 0.85;
+}
 
 /* ----- Docs panel (scrollable inside its column) ----- */
 .docs-col {
@@ -818,6 +904,46 @@ code, code.mono {
 }
 .docs-scroll .doc-body ul { padding-left: 18px; margin-bottom: 8px; }
 .docs-scroll .doc-body li { margin-bottom: 3px; font-size: 0.88rem; line-height: 1.45; }
+
+/* ----- API guide mode switching (code ↔ blocks) ----- */
+.docs-scroll .doc-blocks { display: none; }
+.docs-scroll.mode-blocks .doc-blocks { display: block; }
+.docs-scroll.mode-blocks .doc-code { display: none; }
+
+/* Block reference chips — coloured backgrounds matching Blockly hues */
+.block-ref {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.6;
+  margin: 5px 0;
+  padding: 5px 10px;
+  color: #fff;
+  border-radius: 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.block-ref .block-desc {
+  font-weight: 400;
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 11px;
+  opacity: 0.85;
+}
+/* Blockly hue-based backgrounds (HSV S=45% V=65% → approximate HSL) */
+.block-ref.cat-setup   { background: hsl(45,  70%, 42%); }
+.block-ref.cat-motion  { background: hsl(230, 55%, 52%); }
+.block-ref.cat-sensor  { background: hsl(160, 55%, 36%); }
+.block-ref.cat-action  { background: hsl(20,  70%, 46%); }
+.block-ref.cat-timing  { background: hsl(290, 45%, 46%); }
+.block-ref .block-input {
+  display: inline-block;
+  background: rgba(255,255,255,0.25);
+  border-radius: 10px;
+  padding: 0 6px;
+  font-weight: 400;
+  font-size: 10px;
+}
 
 /* ===== Serial output ===== */
 .feedback {

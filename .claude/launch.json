@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["serve", "-l", "3456", "."],
       "port": 3456
+    },
+    {
+      "name": "sandbox",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-l", "3457", "."],
+      "port": 3457
     }
   ]
 }
